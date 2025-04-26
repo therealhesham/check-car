@@ -1,13 +1,12 @@
-
-
-// // app/history/page.tsx
 // 'use client';
 
-// import { useState, useEffect } from 'react';
+// import { useState, useEffect, useRef } from 'react';
 // import Navbar from '@/public/components/navbar';
 // import { FaHistory, FaSearch } from 'react-icons/fa';
 // import Image from 'next/image';
-// import { carList } from '@/lib/car'; // استيراد قائمة السيارات
+// import { carList } from '@/lib/car';
+// import { licenseList } from '@/lib/License';
+// import { useRouter } from 'next/navigation';
 
 // interface Record {
 //   id: string;
@@ -61,11 +60,66 @@
 //   const [pageSearch, setPageSearch] = useState('');
 //   const [contractSearch, setContractSearch] = useState('');
 //   const [operationTypeFilter, setOperationTypeFilter] = useState('');
+//   const [operationTypeSearch, setOperationTypeSearch] = useState('');
+//   const [showOperationTypeList, setShowOperationTypeList] = useState(false);
 //   const [carFilter, setCarFilter] = useState('');
+//   const [carSearch, setCarSearch] = useState('');
+//   const [showCarList, setShowCarList] = useState(false);
+//   const [plateFilter, setPlateFilter] = useState('');
+//   const [plateSearch, setPlateSearch] = useState('');
+//   const [showPlateList, setShowPlateList] = useState(false);
 //   const [page, setPage] = useState(1);
 //   const [totalRecords, setTotalRecords] = useState(0);
-//   const pageSize = 2;
+//   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+//   const pageSize = 50;
 
+//   const operationTypeRef = useRef<HTMLDivElement>(null);
+//   const carFilterRef = useRef<HTMLDivElement>(null);
+//   const plateFilterRef = useRef<HTMLDivElement>(null);
+//   const router = useRouter();
+
+//   const operationTypes = ['دخول', 'خروج'];
+
+//   // التحقق من تسجيل الدخول ودور المستخدم
+//   useEffect(() => {
+//     const storedUser = localStorage.getItem('user');
+//     if (!storedUser) {
+//       router.push('/login');
+//     }
+//     // إزالة التحقق من user.role !== 'admin'
+//   }, [router]);
+
+//   // الكشف عن الوضع (فاتح/داكن)
+//   useEffect(() => {
+//     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+//     setIsDarkMode(mediaQuery.matches);
+
+//     const handleChange = (e: MediaQueryListEvent) => {
+//       setIsDarkMode(e.matches);
+//     };
+
+//     mediaQuery.addEventListener('change', handleChange);
+//     return () => mediaQuery.removeEventListener('change', handleChange);
+//   }, []);
+
+//   // التعامل مع النقر خارج القوائم
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (operationTypeRef.current && !operationTypeRef.current.contains(event.target as Node)) {
+//         setShowOperationTypeList(false);
+//       }
+//       if (carFilterRef.current && !carFilterRef.current.contains(event.target as Node)) {
+//         setShowCarList(false);
+//       }
+//       if (plateFilterRef.current && !plateFilterRef.current.contains(event.target as Node)) {
+//         setShowPlateList(false);
+//       }
+//     };
+//     document.addEventListener('mousedown', handleClickOutside);
+//     return () => document.removeEventListener('mousedown', handleClickOutside);
+//   }, []);
+
+//   // جلب السجلات
 //   useEffect(() => {
 //     const fetchRecords = async () => {
 //       try {
@@ -74,6 +128,9 @@
 //         let url = `/api/history?page=${page}&pageSize=${pageSize}`;
 //         if (contractSearch) {
 //           url += `&contractNumber=${encodeURIComponent(contractSearch)}`;
+//         }
+//         if (plateFilter) {
+//           url += `&plateFilter=${encodeURIComponent(plateFilter)}`;
 //         }
 //         console.log(`Fetching records from ${url}...`);
 //         const response = await fetch(url, {
@@ -112,9 +169,8 @@
 //     };
 
 //     fetchRecords();
-//   }, [page, contractSearch]);
+//   }, [page, contractSearch, plateFilter]);
 
-//   // تصفية السجلات بناءً على البحث في الصفحة، نوع العملية، والسيارة
 //   const filteredRecords = records.filter((record) => {
 //     const matchesPageSearch = pageSearch
 //       ? String(record.fields['العقد'] ?? '').includes(pageSearch) ||
@@ -127,27 +183,76 @@
 //       ? record.fields['نوع العملية'] === operationTypeFilter
 //       : true;
 
-//     const matchesCar = carFilter
-//       ? record.fields['السيارة'] === carFilter
-//       : true;
+//     const matchesCar = carFilter ? record.fields['السيارة'] === carFilter : true;
 
-//     return matchesPageSearch && matchesOperationType && matchesCar;
+//     const matchesPlate = plateFilter ? record.fields['اللوحة'] === plateFilter : true;
+
+//     return matchesPageSearch && matchesOperationType && matchesCar && matchesPlate;
 //   });
+
+//   const filteredOperationTypes = operationTypes.filter((type) =>
+//     type.toLowerCase().includes(operationTypeSearch.toLowerCase())
+//   );
+
+//   const filteredCars = carList.filter((car) =>
+//     car.toLowerCase().includes(carSearch.toLowerCase())
+//   );
+
+//   const filteredPlates = licenseList.filter((plate) =>
+//     plate.toLowerCase().includes(plateSearch.toLowerCase())
+//   );
+
+//   const handleOperationTypeSelect = (type: string) => {
+//     setOperationTypeFilter(type);
+//     setOperationTypeSearch(type);
+//     setShowOperationTypeList(false);
+//   };
+
+//   const handleCarSelect = (car: string) => {
+//     setCarFilter(car);
+//     setCarSearch(car);
+//     setShowCarList(false);
+//   };
+
+//   const handlePlateSelect = (plate: string) => {
+//     setPlateFilter(plate);
+//     setPlateSearch(plate);
+//     setShowPlateList(false);
+//     setPage(1);
+//   };
+
+//   const clearOperationTypeFilter = () => {
+//     setOperationTypeFilter('');
+//     setOperationTypeSearch('');
+//     setShowOperationTypeList(false);
+//   };
+
+//   const clearCarFilter = () => {
+//     setCarFilter('');
+//     setCarSearch('');
+//     setShowCarList(false);
+//   };
+
+//   const clearPlateFilter = () => {
+//     setPlateFilter('');
+//     setPlateSearch('');
+//     setShowPlateList(false);
+//     setPage(1);
+//   };
 
 //   const closeImageModal = () => {
 //     setSelectedImage(null);
 //   };
 
 //   return (
-//     <div dir="rtl" className="min-h-screen bg-gray-100">
+//     <div dir="rtl" className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
 //       <Navbar />
-//       <div className="container mx-auto px-4 py-8">
-//         <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-800 mb-8 flex items-center justify-center">
+//       <div className="container mx-auto px-4 py-8 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+//         <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-8 flex items-center justify-center">
 //           <FaHistory className="mr-2 text-blue-600" />
 //           سجل تشييك السيارات
 //         </h1>
 
-//         {/* حقول البحث والفلاتر */}
 //         <div className="mb-6 flex flex-col sm:flex-row gap-4">
 //           <div className="relative flex-1">
 //             <input
@@ -155,64 +260,173 @@
 //               value={pageSearch}
 //               onChange={(e) => setPageSearch(e.target.value)}
 //               placeholder="ابحث في الصفحة (العقد، السيارة، اللوحة، نوع العملية)"
-//               className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+//               className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 //             />
-//             <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+//             <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
 //           </div>
+
 //           <div className="relative flex-1">
 //             <input
 //               type="text"
 //               value={contractSearch}
-//               onChange={(e) => setContractSearch(e.target.value)}
+//               onChange={(e) => {
+//                 setContractSearch(e.target.value);
+//                 setPage(1);
+//               }}
 //               placeholder="ابحث برقم العقد (بحث عام)"
-//               className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+//               className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 //             />
-//             <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+//             <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
 //           </div>
-//           <select
-//             value={operationTypeFilter}
-//             onChange={(e) => setOperationTypeFilter(e.target.value)}
-//             className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//           >
-//             <option value="">جميع أنواع العمليات</option>
-//             <option value="دخول">دخول</option>
-//             <option value="خروج">خروج</option>
-//           </select>
-//           <select
-//             value={carFilter}
-//             onChange={(e) => setCarFilter(e.target.value)}
-//             className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//           >
-//             <option value="">جميع السيارات</option>
-//             {carList.map((car) => (
-//               <option key={car} value={car}>
-//                 {car}
-//               </option>
-//             ))}
-//           </select>
+
+//           <div ref={operationTypeRef} className="relative flex-1">
+//             <input
+//               type="text"
+//               value={operationTypeSearch}
+//               onChange={(e) => {
+//                 setOperationTypeSearch(e.target.value);
+//                 setShowOperationTypeList(true);
+//               }}
+//               onFocus={() => setShowOperationTypeList(true)}
+//               placeholder="فلتر حسب نوع العملية"
+//               className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+//             />
+//             {operationTypeFilter && (
+//               <button
+//                 type="button"
+//                 onClick={clearOperationTypeFilter}
+//                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+//               >
+//                 ×
+//               </button>
+//             )}
+//             {showOperationTypeList && (
+//               <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+//                 {filteredOperationTypes.length > 0 ? (
+//                   filteredOperationTypes.map((type) => (
+//                     <li
+//                       key={type}
+//                       onClick={() => handleOperationTypeSelect(type)}
+//                       className="px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+//                     >
+//                       {type}
+//                     </li>
+//                   ))
+//                 ) : (
+//                   <li className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+//                     لا توجد خيارات مطابقة
+//                   </li>
+//                 )}
+//               </ul>
+//             )}
+//           </div>
+
+//           <div ref={carFilterRef} className="relative flex-1">
+//             <input
+//               type="text"
+//               value={carSearch}
+//               onChange={(e) => {
+//                 setCarSearch(e.target.value);
+//                 setShowCarList(true);
+//               }}
+//               onFocus={() => setShowCarList(true)}
+//               placeholder="فلتر حسب السيارة"
+//               className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+//             />
+//             {carFilter && (
+//               <button
+//                 type="button"
+//                 onClick={clearCarFilter}
+//                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+//               >
+//                 ×
+//               </button>
+//             )}
+//             {showCarList && (
+//               <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+//                 {filteredCars.length > 0 ? (
+//                   filteredCars.map((car) => (
+//                     <li
+//                       key={car}
+//                       onClick={() => handleCarSelect(car)}
+//                       className="px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+//                     >
+//                       {car}
+//                     </li>
+//                   ))
+//                 ) : (
+//                   <li className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+//                     لا توجد سيارات مطابقة
+//                   </li>
+//                 )}
+//               </ul>
+//             )}
+//           </div>
+
+//           <div ref={plateFilterRef} className="relative flex-1">
+//             <input
+//               type="text"
+//               value={plateSearch}
+//               onChange={(e) => {
+//                 setPlateSearch(e.target.value);
+//                 setShowPlateList(true);
+//               }}
+//               onFocus={() => setShowPlateList(true)}
+//               placeholder="فلتر حسب اللوحة"
+//               className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+//             />
+//             {plateFilter && (
+//               <button
+//                 type="button"
+//                 onClick={clearPlateFilter}
+//                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+//               >
+//                 ×
+//               </button>
+//             )}
+//             {showPlateList && (
+//               <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+//                 {filteredPlates.length > 0 ? (
+//                   filteredPlates.map((plate) => (
+//                     <li
+//                       key={plate}
+//                       onClick={() => handlePlateSelect(plate)}
+//                       className="px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+//                     >
+//                       {plate}
+//                     </li>
+//                   ))
+//                 ) : (
+//                   <li className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+//                     لا توجد لوحات مطابقة
+//                   </li>
+//                 )}
+//               </ul>
+//             )}
+//           </div>
 //         </div>
 
 //         {isLoading && (
 //           <div className="flex justify-center items-center">
-//             <p className="text-lg text-gray-600">جاري التحميل...</p>
+//             <p className="text-lg text-gray-600 dark:text-gray-300">جاري التحميل...</p>
 //           </div>
 //         )}
 
 //         {error && (
-//           <div className="text-center text-sm text-red-600 bg-red-100 p-4 rounded-md mb-6">
+//           <div className="text-center text-sm text-red-700 dark:text-red-200 bg-red-100 dark:bg-red-900 p-4 rounded-md mb-6">
 //             {error}
 //           </div>
 //         )}
 
 //         {!isLoading && !error && filteredRecords.length === 0 && (
-//           <div className="text-center text-gray-600">
+//           <div className="text-center text-gray-600 dark:text-gray-300">
 //             <p>لا توجد سجلات مطابقة لمعايير البحث أو الفلتر.</p>
 //           </div>
 //         )}
 
 //         {!isLoading && !error && filteredRecords.length > 0 && (
 //           <div className="overflow-x-auto">
-//             <table className="w-full bg-white rounded-lg shadow-md">
+//             <table className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-md">
 //               <thead>
 //                 <tr className="bg-blue-600 text-white">
 //                   <th className="py-3 px-4 text-right">رقم العقد</th>
@@ -224,11 +438,22 @@
 //               </thead>
 //               <tbody>
 //                 {filteredRecords.map((record) => (
-//                   <tr key={record.id} className="border-b hover:bg-gray-50">
-//                     <td className="py-3 px-4 text-right">{record.fields['العقد'] ?? '-'}</td>
-//                     <td className="py-3 px-4 text-right">{record.fields['السيارة'] ?? '-'}</td>
-//                     <td className="py-3 px-4 text-right">{record.fields['اللوحة'] ?? '-'}</td>
-//                     <td className="py-3 px-4 text-right">{record.fields['نوع العملية'] ?? '-'}</td>
+//                   <tr
+//                     key={record.id}
+//                     className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+//                   >
+//                     <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+//                       {record.fields['العقد'] ?? '-'}
+//                     </td>
+//                     <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+//                       {record.fields['السيارة'] ?? '-'}
+//                     </td>
+//                     <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+//                       {record.fields['اللوحة'] ?? '-'}
+//                     </td>
+//                     <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+//                       {record.fields['نوع العملية'] ?? '-'}
+//                     </td>
 //                     <td className="py-3 px-4 text-right">
 //                       <div className="flex flex-wrap gap-2">
 //                         {fieldTitles.map((title) =>
@@ -259,8 +484,7 @@
 //           </div>
 //         )}
 
-//         {/* أزرار التنقل بين الصفحات */}
-//         {!isLoading && !error && totalRecords > 0 && !contractSearch && (
+//         {!isLoading && !error && totalRecords > 0 && !contractSearch && !plateFilter && (
 //           <div className="mt-6 flex justify-center gap-4 items-center">
 //             <button
 //               onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -269,7 +493,7 @@
 //             >
 //               السابق
 //             </button>
-//             <span className="text-gray-800">
+//             <span className="text-gray-800 dark:text-gray-200">
 //               صفحة {page} من {Math.ceil(totalRecords / pageSize)}
 //             </span>
 //             <button
@@ -282,7 +506,6 @@
 //           </div>
 //         )}
 
-//         {/* معاينة الصورة الكبيرة */}
 //         {selectedImage && (
 //           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
 //             <div className="relative max-w-3xl w-full">
@@ -316,6 +539,8 @@ import { FaHistory, FaSearch } from 'react-icons/fa';
 import Image from 'next/image';
 import { carList } from '@/lib/car';
 import { licenseList } from '@/lib/License';
+import { branchList } from '@/lib/branchList';
+import { useRouter } from 'next/navigation';
 
 interface Record {
   id: string;
@@ -324,6 +549,8 @@ interface Record {
     السيارة?: string | null;
     اللوحة?: string | null;
     'نوع العملية'?: string | null;
+    الموظف?: string | null;
+    الفرع?: string | null;
     [key: string]: any;
   };
 }
@@ -377,18 +604,31 @@ export default function HistoryPage() {
   const [plateFilter, setPlateFilter] = useState('');
   const [plateSearch, setPlateSearch] = useState('');
   const [showPlateList, setShowPlateList] = useState(false);
+  const [branchFilter, setBranchFilter] = useState('');
+  const [branchSearch, setBranchSearch] = useState('');
+  const [showBranchList, setShowBranchList] = useState(false);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false); // حالة الوضع (فاتح/داكن)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const pageSize = 50;
 
   const operationTypeRef = useRef<HTMLDivElement>(null);
   const carFilterRef = useRef<HTMLDivElement>(null);
   const plateFilterRef = useRef<HTMLDivElement>(null);
+  const branchFilterRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const operationTypes = ['دخول', 'خروج'];
 
-  // الكشف عن الوضع (فاتح/داكن) بناءً على تفضيلات النظام
+  // التحقق من تسجيل الدخول
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      router.push('/login');
+    }
+  }, [router]);
+
+  // الكشف عن الوضع (فاتح/داكن)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDarkMode(mediaQuery.matches);
@@ -401,6 +641,7 @@ export default function HistoryPage() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  // التعامل مع النقر خارج القوائم
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (operationTypeRef.current && !operationTypeRef.current.contains(event.target as Node)) {
@@ -412,11 +653,15 @@ export default function HistoryPage() {
       if (plateFilterRef.current && !plateFilterRef.current.contains(event.target as Node)) {
         setShowPlateList(false);
       }
+      if (branchFilterRef.current && !branchFilterRef.current.contains(event.target as Node)) {
+        setShowBranchList(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // جلب السجلات
   useEffect(() => {
     const fetchRecords = async () => {
       try {
@@ -425,9 +670,6 @@ export default function HistoryPage() {
         let url = `/api/history?page=${page}&pageSize=${pageSize}`;
         if (contractSearch) {
           url += `&contractNumber=${encodeURIComponent(contractSearch)}`;
-        }
-        if (plateFilter) {
-          url += `&plateFilter=${encodeURIComponent(plateFilter)}`;
         }
         console.log(`Fetching records from ${url}...`);
         const response = await fetch(url, {
@@ -466,14 +708,16 @@ export default function HistoryPage() {
     };
 
     fetchRecords();
-  }, [page, contractSearch, plateFilter]);
+  }, [page, contractSearch]);
 
   const filteredRecords = records.filter((record) => {
     const matchesPageSearch = pageSearch
       ? String(record.fields['العقد'] ?? '').includes(pageSearch) ||
         (record.fields['السيارة'] ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
         (record.fields['اللوحة'] ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
-        (record.fields['نوع العملية'] ?? '').toLowerCase().includes(pageSearch.toLowerCase())
+        (record.fields['نوع العملية'] ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+        (record.fields['الموظف'] ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+        (record.fields['الفرع'] ?? '').toLowerCase().includes(pageSearch.toLowerCase())
       : true;
 
     const matchesOperationType = operationTypeFilter
@@ -484,7 +728,9 @@ export default function HistoryPage() {
 
     const matchesPlate = plateFilter ? record.fields['اللوحة'] === plateFilter : true;
 
-    return matchesPageSearch && matchesOperationType && matchesCar && matchesPlate;
+    const matchesBranch = branchFilter ? record.fields['الفرع'] === branchFilter : true;
+
+    return matchesPageSearch && matchesOperationType && matchesCar && matchesPlate && matchesBranch;
   });
 
   const filteredOperationTypes = operationTypes.filter((type) =>
@@ -497,6 +743,10 @@ export default function HistoryPage() {
 
   const filteredPlates = licenseList.filter((plate) =>
     plate.toLowerCase().includes(plateSearch.toLowerCase())
+  );
+
+  const filteredBranches = branchList.filter((branch) =>
+    branch.toLowerCase().includes(branchSearch.toLowerCase())
   );
 
   const handleOperationTypeSelect = (type: string) => {
@@ -515,7 +765,12 @@ export default function HistoryPage() {
     setPlateFilter(plate);
     setPlateSearch(plate);
     setShowPlateList(false);
-    setPage(1);
+  };
+
+  const handleBranchSelect = (branch: string) => {
+    setBranchFilter(branch);
+    setBranchSearch(branch);
+    setShowBranchList(false);
   };
 
   const clearOperationTypeFilter = () => {
@@ -534,7 +789,12 @@ export default function HistoryPage() {
     setPlateFilter('');
     setPlateSearch('');
     setShowPlateList(false);
-    setPage(1);
+  };
+
+  const clearBranchFilter = () => {
+    setBranchFilter('');
+    setBranchSearch('');
+    setShowBranchList(false);
   };
 
   const closeImageModal = () => {
@@ -550,19 +810,19 @@ export default function HistoryPage() {
           سجل تشييك السيارات
         </h1>
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
             <input
               type="text"
               value={pageSearch}
               onChange={(e) => setPageSearch(e.target.value)}
-              placeholder="ابحث في الصفحة (العقد، السيارة، اللوحة، نوع العملية)"
+              placeholder="ابحث في الصفحة (العقد، السيارة، اللوحة، الموظف، الفرع...)"
               className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
             <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           </div>
 
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-[200px]">
             <input
               type="text"
               value={contractSearch}
@@ -576,7 +836,7 @@ export default function HistoryPage() {
             <FaSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           </div>
 
-          <div ref={operationTypeRef} className="relative flex-1">
+          <div ref={operationTypeRef} className="relative flex-1 min-w-[200px]">
             <input
               type="text"
               value={operationTypeSearch}
@@ -618,7 +878,7 @@ export default function HistoryPage() {
             )}
           </div>
 
-          <div ref={carFilterRef} className="relative flex-1">
+          <div ref={carFilterRef} className="relative flex-1 min-w-[200px]">
             <input
               type="text"
               value={carSearch}
@@ -628,7 +888,7 @@ export default function HistoryPage() {
               }}
               onFocus={() => setShowCarList(true)}
               placeholder="فلتر حسب السيارة"
-              className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg IMPACT Impact font-bold text-2xlwhite dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
             {carFilter && (
               <button
@@ -660,7 +920,7 @@ export default function HistoryPage() {
             )}
           </div>
 
-          <div ref={plateFilterRef} className="relative flex-1">
+          <div ref={plateFilterRef} className="relative flex-1 min-w-[200px]">
             <input
               type="text"
               value={plateSearch}
@@ -701,6 +961,48 @@ export default function HistoryPage() {
               </ul>
             )}
           </div>
+
+          <div ref={branchFilterRef} className="relative flex-1 min-w-[200px]">
+            <input
+              type="text"
+              value={branchSearch}
+              onChange={(e) => {
+                setBranchSearch(e.target.value);
+                setShowBranchList(true);
+              }}
+              onFocus={() => setShowBranchList(true)}
+              placeholder="فلتر حسب الفرع"
+              className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+            {branchFilter && (
+              <button
+                type="button"
+                onClick={clearBranchFilter}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+              >
+                ×
+              </button>
+            )}
+            {showBranchList && (
+              <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                {filteredBranches.length > 0 ? (
+                  filteredBranches.map((branch) => (
+                    <li
+                      key={branch}
+                      onClick={() => handleBranchSelect(branch)}
+                      className="px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+                    >
+                      {branch}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                    لا توجد فروع مطابقة
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
         </div>
 
         {isLoading && (
@@ -730,6 +1032,8 @@ export default function HistoryPage() {
                   <th className="py-3 px-4 text-right">السيارة</th>
                   <th className="py-3 px-4 text-right">اللوحة</th>
                   <th className="py-3 px-4 text-right">نوع العملية</th>
+                  <th className="py-3 px-4 text-right">الموظف</th>
+                  <th className="py-3 px-4 text-right">الفرع</th>
                   <th className="py-3 px-4 text-right">الصور</th>
                 </tr>
               </thead>
@@ -750,6 +1054,12 @@ export default function HistoryPage() {
                     </td>
                     <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
                       {record.fields['نوع العملية'] ?? '-'}
+                    </td>
+                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                      {record.fields['الموظف'] ?? '-'}
+                    </td>
+                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                      {record.fields['الفرع'] ?? '-'}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex flex-wrap gap-2">
@@ -781,7 +1091,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {!isLoading && !error && totalRecords > 0 && !contractSearch && !plateFilter && (
+        {!isLoading && !error && totalRecords > 0 && !contractSearch && (
           <div className="mt-6 flex justify-center gap-4 items-center">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}

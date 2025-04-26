@@ -1,8 +1,7 @@
 
 
-// // app/api/history/route.ts
 // import { NextResponse } from 'next/server';
-// import Airtable from 'airtable';
+// import Airtable, { Records } from 'airtable';
 
 // // واجهة لسجلات Airtable
 // interface AirtableRecord {
@@ -63,9 +62,26 @@
 // }
 
 // // الحصول على العدد الإجمالي الفعلي للسجلات
-// async function getTotalRecords(): Promise<number> {
+// async function getTotalRecords(contractNumber?: string, plateFilter?: string): Promise<number> {
 //   try {
 //     console.log('Fetching total records from Airtable...');
+//     let filterFormula = '';
+//     if (contractNumber && plateFilter) {
+//       filterFormula = `AND({العقد} = ${contractNumber}, {اللوحة} = "${plateFilter}")`;
+//     } else if (contractNumber) {
+//       filterFormula = `{العقد} = ${contractNumber}`;
+//     } else if (plateFilter) {
+//       filterFormula = `{اللوحة} = "${plateFilter}"`;
+//     }
+
+//     if (filterFormula) {
+//       const records = await base(airtableTableName)
+//         .select({
+//           filterByFormula: filterFormula,
+//         })
+//         .all();
+//       return records.length;
+//     }
 //     const records = await base(airtableTableName).select({}).all();
 //     console.log(`Total records found: ${records.length}`);
 //     return records.length;
@@ -76,7 +92,7 @@
 //       errorCode: error.error,
 //       details: error.response?.data || error,
 //     });
-//     return 0;
+//     throw new Error(`Failed to fetch total records: ${error.message}`);
 //   }
 // }
 
@@ -97,27 +113,72 @@
 //       );
 //     }
 
-//     // استخراج معلمات الترقيم
+//     // استخراج معلمات الاستعلام
 //     const url = new URL(req.url);
 //     const page = parseInt(url.searchParams.get('page') || '1', 10);
-//     const pageSize = parseInt(url.searchParams.get('pageSize') || '2', 10); // 2 للتجربة
+//     const pageSize = parseInt(url.searchParams.get('pageSize') || '50', 10); // تغيير إلى 50
+//     const contractNumber = url.searchParams.get('contractNumber')?.trim();
+//     const plateFilter = url.searchParams.get('plateFilter')?.trim();
 
-//     // حساب الإزاحة (offset)
-//     const offset = (page - 1) * pageSize;
+//     let records: AirtableRecord[] = [];
 
-//     // جلب السجلات للصفحة الحالية
-//     const records = await base(airtableTableName)
-//       .select({
-//         maxRecords: pageSize + offset, // جلب السجلات حتى الإزاحة المطلوبة
-//       })
-//       .all();
+//     if (contractNumber || plateFilter) {
+//       // التحقق من أن رقم العقد صالح (رقم صحيح) إذا تم تمريره
+//       if (contractNumber && !/^\d+$/.test(contractNumber)) {
+//         return NextResponse.json(
+//           {
+//             success: false,
+//             message: 'رقم العقد يجب أن يكون رقمًا صحيحًا.',
+//             error: 'INVALID_CONTRACT_NUMBER',
+//           },
+//           { status: 400 }
+//         );
+//       }
 
-//     // تخطي السجلات بناءً على offset
-//     const paginatedRecords = records.slice(offset, offset + pageSize);
+//       // بناء صيغة الفلتر
+//       let filterFormula = '';
+//       if (contractNumber && plateFilter) {
+//         filterFormula = `AND({العقد} = ${contractNumber}, {اللوحة} = "${plateFilter}")`;
+//       } else if (contractNumber) {
+//         filterFormula = `{العقد} = ${contractNumber}`;
+//       } else if (plateFilter) {
+//         filterFormula = `{اللوحة} = "${plateFilter}"`;
+//       }
 
-//     console.log(`Retrieved ${paginatedRecords.length} records for page ${page}`);
+//       console.log(`Searching with filter: ${filterFormula}`);
+//       const airtableRecords: Records<any> = await base(airtableTableName)
+//         .select({
+//           filterByFormula: filterFormula,
+//           sort: [{ field: 'createdTime', direction: 'desc' }], // ترتيب تنازلي حسب تاريخ الإنشاء
+//           maxRecords: pageSize * page, // جلب عدد كافٍ لتغطية الصفحات
+//         })
+//         .all();
 
-//     const results = paginatedRecords.map((record: AirtableRecord) => ({
+//       const offset = (page - 1) * pageSize;
+//       records = airtableRecords.slice(offset, offset + pageSize).map(record => ({
+//         id: record.id,
+//         fields: record.fields,
+//         getId: () => record.id,
+//       }));
+//     } else {
+//       // جلب السجلات بناءً على التصفح
+//       const offset = (page - 1) * pageSize;
+//       const airtableRecords: Records<any> = await base(airtableTableName)
+//         .select({
+//           sort: [{ field: 'createdTime', direction: 'desc' }], // ترتيب تنازلي حسب تاريخ الإنشاء
+//           maxRecords: pageSize + offset,
+//         })
+//         .all();
+//       records = airtableRecords.slice(offset, offset + pageSize).map(record => ({
+//         id: record.id,
+//         fields: record.fields,
+//         getId: () => record.id,
+//       }));
+//     }
+
+//     console.log(`Retrieved ${records.length} records for page ${page}`);
+
+//     const results = records.map((record: AirtableRecord) => ({
 //       id: record.id,
 //       fields: {
 //         العقد: record.fields['العقد'] || null,
@@ -139,8 +200,7 @@
 //       },
 //     }));
 
-//     // الحصول على العدد الإجمالي الفعلي
-//     const total = await getTotalRecords();
+//     const total = await getTotalRecords(contractNumber, plateFilter);
 
 //     return NextResponse.json({
 //       success: true,
@@ -162,6 +222,7 @@
 //         success: false,
 //         message: 'حدث خطأ أثناء استرجاع السجلات.',
 //         error: error.message || 'خطأ غير معروف',
+//         details: error.response?.data || null,
 //       },
 //       { status: error.status || 500 }
 //     );
@@ -230,16 +291,30 @@ async function verifyTableAccess(): Promise<boolean> {
 }
 
 // الحصول على العدد الإجمالي الفعلي للسجلات
-async function getTotalRecords(contractNumber?: string, plateFilter?: string): Promise<number> {
+async function getTotalRecords(
+  contractNumber?: string,
+  plateFilter?: string,
+  branchFilter?: string,
+  operationType?: string
+): Promise<number> {
   try {
     console.log('Fetching total records from Airtable...');
     let filterFormula = '';
-    if (contractNumber && plateFilter) {
-      filterFormula = `AND({العقد} = ${contractNumber}, {اللوحة} = "${plateFilter}")`;
-    } else if (contractNumber) {
-      filterFormula = `{العقد} = ${contractNumber}`;
-    } else if (plateFilter) {
-      filterFormula = `{اللوحة} = "${plateFilter}"`;
+    const conditions: string[] = [];
+    if (contractNumber) {
+      conditions.push(`{العقد} = ${contractNumber}`);
+    }
+    if (plateFilter) {
+      conditions.push(`{اللوحة} = "${plateFilter}"`);
+    }
+    if (branchFilter) {
+      conditions.push(`{الفرع} = "${branchFilter}"`);
+    }
+    if (operationType) {
+      conditions.push(`{نوع العملية} = "${operationType}"`);
+    }
+    if (conditions.length > 0) {
+      filterFormula = `AND(${conditions.join(', ')})`;
     }
 
     if (filterFormula) {
@@ -284,68 +359,77 @@ export async function GET(req: Request) {
     // استخراج معلمات الاستعلام
     const url = new URL(req.url);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '50', 10); // تغيير إلى 50
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '50', 10);
     const contractNumber = url.searchParams.get('contractNumber')?.trim();
     const plateFilter = url.searchParams.get('plateFilter')?.trim();
+    const branchFilter = url.searchParams.get('branchFilter')?.trim();
+    const operationType = url.searchParams.get('operationType')?.trim();
+
+    // التحقق من أن رقم العقد صالح (رقم صحيح) إذا تم تمريره
+    if (contractNumber && !/^\d+$/.test(contractNumber)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'رقم العقد يجب أن يكون رقمًا صحيحًا.',
+          error: 'INVALID_CONTRACT_NUMBER',
+        },
+        { status: 400 }
+      );
+    }
+
+    // التحقق من صحة operationType إذا تم تمريره
+    if (operationType && !['دخول', 'خروج'].includes(operationType)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'نوع العملية غير صالح. يجب أن يكون "دخول" أو "خروج".',
+          error: 'INVALID_OPERATION_TYPE',
+        },
+        { status: 400 }
+      );
+    }
+
+    // بناء صيغة الفلتر
+    let filterFormula = '';
+    const conditions: string[] = [];
+    if (contractNumber) {
+      conditions.push(`{العقد} = ${contractNumber}`);
+    }
+    if (plateFilter) {
+      conditions.push(`{اللوحة} = "${plateFilter}"`);
+    }
+    if (branchFilter) {
+      conditions.push(`{الفرع} = "${branchFilter}"`);
+    }
+    if (operationType) {
+      conditions.push(`{نوع العملية} = "${operationType}"`);
+    }
+    if (conditions.length > 0) {
+      filterFormula = `AND(${conditions.join(', ')})`;
+    }
 
     let records: AirtableRecord[] = [];
 
-    if (contractNumber || plateFilter) {
-      // التحقق من أن رقم العقد صالح (رقم صحيح) إذا تم تمريره
-      if (contractNumber && !/^\d+$/.test(contractNumber)) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: 'رقم العقد يجب أن يكون رقمًا صحيحًا.',
-            error: 'INVALID_CONTRACT_NUMBER',
-          },
-          { status: 400 }
-        );
-      }
+    // جلب السجلات بناءً على الفلتر أو التصفح
+    console.log(`Searching with filter: ${filterFormula || 'No filter'}`);
+    const airtableRecords: Records<any> = await base(airtableTableName)
+      .select({
+        filterByFormula: filterFormula,
+        sort: [{ field: 'createdTime', direction: 'desc' }],
+        maxRecords: filterFormula ? pageSize : pageSize * page, // تحسين الأداء عند استخدام فلتر
+      })
+      .all();
 
-      // بناء صيغة الفلتر
-      let filterFormula = '';
-      if (contractNumber && plateFilter) {
-        filterFormula = `AND({العقد} = ${contractNumber}, {اللوحة} = "${plateFilter}")`;
-      } else if (contractNumber) {
-        filterFormula = `{العقد} = ${contractNumber}`;
-      } else if (plateFilter) {
-        filterFormula = `{اللوحة} = "${plateFilter}"`;
-      }
-
-      console.log(`Searching with filter: ${filterFormula}`);
-      const airtableRecords: Records<any> = await base(airtableTableName)
-        .select({
-          filterByFormula: filterFormula,
-          sort: [{ field: 'createdTime', direction: 'desc' }], // ترتيب تنازلي حسب تاريخ الإنشاء
-          maxRecords: pageSize * page, // جلب عدد كافٍ لتغطية الصفحات
-        })
-        .all();
-
-      const offset = (page - 1) * pageSize;
-      records = airtableRecords.slice(offset, offset + pageSize).map(record => ({
-        id: record.id,
-        fields: record.fields,
-        getId: () => record.id,
-      }));
-    } else {
-      // جلب السجلات بناءً على التصفح
-      const offset = (page - 1) * pageSize;
-      const airtableRecords: Records<any> = await base(airtableTableName)
-        .select({
-          sort: [{ field: 'createdTime', direction: 'desc' }], // ترتيب تنازلي حسب تاريخ الإنشاء
-          maxRecords: pageSize + offset,
-        })
-        .all();
-      records = airtableRecords.slice(offset, offset + pageSize).map(record => ({
-        id: record.id,
-        fields: record.fields,
-        getId: () => record.id,
-      }));
-    }
+    const offset = filterFormula ? 0 : (page - 1) * pageSize;
+    records = airtableRecords.slice(offset, offset + pageSize).map((record) => ({
+      id: record.id,
+      fields: record.fields,
+      getId: () => record.id,
+    }));
 
     console.log(`Retrieved ${records.length} records for page ${page}`);
 
+    // تنسيق السجلات للاستجابة
     const results = records.map((record: AirtableRecord) => ({
       id: record.id,
       fields: {
@@ -353,6 +437,8 @@ export async function GET(req: Request) {
         السيارة: record.fields['السيارة'] || null,
         اللوحة: record.fields['اللوحة'] || null,
         'نوع العملية': record.fields['نوع العملية'] || null,
+        الموظف: record.fields['الموظف'] || null,
+        الفرع: record.fields['الفرع'] || null,
         ...Object.fromEntries(
           fieldTitles.map((title) => [
             title,
@@ -368,7 +454,8 @@ export async function GET(req: Request) {
       },
     }));
 
-    const total = await getTotalRecords(contractNumber, plateFilter);
+    // جلب العدد الإجمالي للسجلات
+    const total = await getTotalRecords(contractNumber, plateFilter, branchFilter, operationType);
 
     return NextResponse.json({
       success: true,
