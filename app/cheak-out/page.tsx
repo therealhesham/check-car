@@ -1240,6 +1240,8 @@ export default function UploadPage() {
       setShowToast(true);
       setUploadProgress(0);
     } finally {
+      // setIsSuccess(true);
+      setShowToast(false);
       setIsUploading(false);
     }
   };
