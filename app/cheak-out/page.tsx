@@ -1347,7 +1347,7 @@ export default function UploadPage() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    pattern="[0-9]*"
+{/*                     pattern="[0-9]*" */}
                     value={contract}
                     onChange={(e) => setContract(e.target.value)}
                     className={`w-full px-3 py-2 border ${
