@@ -299,17 +299,24 @@ async function verifyTableAccess(): Promise<boolean> {
 }
 
 // دالة للتحقق من وجود سجل دخول سابق بنفس رقم العقد
+// دالة للتحقق من وجود سجل دخول سابق بنفس رقم العقد
 async function checkPreviousEntry(contractNumber: string): Promise<boolean> {
   try {
-    console.log(`Checking for previous entry with contract number: ${contractNumber}`);
+    // التحقق من أن contractNumber رقم صحيح
+    const contractNum = parseFloat(contractNumber);
+    if (isNaN(contractNum) || !Number.isInteger(contractNum)) {
+      throw new Error('رقم العقد يجب أن يكون رقمًا صحيحًا');
+    }
+
+    console.log(`Checking for previous entry with contract number: ${contractNum}`);
     const records = await base(airtableTableName)
       .select({
-        filterByFormula: `{العقد} = "${contractNumber}" AND {نوع العملية} = "دخول"`,
+        filterByFormula: `{العقد} = ${contractNum} AND {نوع العملية} = "دخول"`,
         maxRecords: 1,
       })
       .firstPage();
 
-    console.log(`Found ${records.length} previous entry records for contract ${contractNumber}`);
+    console.log(`Found ${records.length} previous entry records for contract ${contractNum}`);
     return records.length > 0;
   } catch (error: any) {
     console.error('Error checking previous entry:', error);
