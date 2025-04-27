@@ -299,19 +299,26 @@ async function verifyTableAccess(): Promise<boolean> {
 }
 
 // دالة للتحقق من وجود سجل دخول سابق بنفس رقم العقد
-// دالة للتحقق من وجود سجل دخول سابق بنفس رقم العقد
 async function checkPreviousEntry(contractNumber: string): Promise<boolean> {
   try {
-    // التحقق من أن contractNumber رقم صحيح
+    // التحقق من أن contractNumber ليس فارغًا وهو رقم صحيح
+    if (!contractNumber || contractNumber.trim() === '') {
+      throw new Error('رقم العقد مطلوب ولا يمكن أن يكون فارغًا');
+    }
+
     const contractNum = parseFloat(contractNumber);
     if (isNaN(contractNum) || !Number.isInteger(contractNum)) {
       throw new Error('رقم العقد يجب أن يكون رقمًا صحيحًا');
     }
 
+    // بناء صيغة الفلتر بعناية
+    const filterFormula = `AND({العقد} = ${contractNum}, {نوع العملية} = "دخول")`;
+    console.log(`Filter formula for checking previous entry: ${filterFormula}`);
+
     console.log(`Checking for previous entry with contract number: ${contractNum}`);
     const records = await base(airtableTableName)
       .select({
-        filterByFormula: `{العقد} = ${contractNum} AND {نوع العملية} = "دخول"`,
+        filterByFormula: filterFormula,
         maxRecords: 1,
       })
       .firstPage();
@@ -319,7 +326,11 @@ async function checkPreviousEntry(contractNumber: string): Promise<boolean> {
     console.log(`Found ${records.length} previous entry records for contract ${contractNum}`);
     return records.length > 0;
   } catch (error: any) {
-    console.error('Error checking previous entry:', error);
+    console.error('Error checking previous entry:', {
+      message: error.message,
+      details: error.response?.data || error,
+      contractNumber,
+    });
     throw new Error(`فشل في التحقق من سجل الدخول السابق: ${error.message}`);
   }
 }
