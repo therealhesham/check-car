@@ -1430,142 +1430,147 @@ export default function CheckInPage() {
  };
 
  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
- e.preventDefault();
+  e.preventDefault();
 
- // التحقق من ملء جميع الحقول النصية المطلوبة
- if (!contract.trim() || !car.trim() || !plate.trim()) {
- setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
- setShowToast(true);
- return;
- }
+  // التحقق من ملء جميع الحقول النصية المطلوبة
+  if (!contract.trim() || !car.trim() || !plate.trim()) {
+    setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
+    setShowToast(true);
+    return;
+  }
 
- // التحقق من أن رقم العقد رقم صالح
- const contractNum = parseFloat(contract);
- if (isNaN(contractNum)) {
- setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
- setShowToast(true);
- return;
- }
+  // التحقق من أن رقم العقد رقم صالح
+  const contractNum = parseFloat(contract);
+  if (isNaN(contractNum)) {
+    setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
+    setShowToast(true);
+    return;
+  }
 
- // التحقق من وجود أي صورة مطلوبة
- const requiredImages = files.filter((fileSection) => fileSection.title !== 'صور اخرى');
- const hasAnyRequiredImage = requiredImages.some((fileSection) => {
- if (fileSection.base64Data === null) return false;
- if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length > 0;
- return fileSection.base64Data !== '';
- });
- if (!hasAnyRequiredImage) {
- setUploadMessage('يرجى رفع الصور المطلوبة.');
- setShowToast(true);
- return;
- }
+  // التحقق من وجود أي صورة مطلوبة
+  const requiredImages = files.filter((fileSection) => fileSection.title !== 'صور اخرى');
+  const hasAnyRequiredImage = requiredImages.some((fileSection) => {
+    if (fileSection.base64Data === null) return false;
+    if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length > 0;
+    return fileSection.base64Data !== '';
+  });
+  if (!hasAnyRequiredImage) {
+    setUploadMessage('يرجى رفع الصور المطلوبة.');
+    setShowToast(true);
+    return;
+  }
 
- // التحقق من كل صورة مطلوبة
- const missingImages = requiredImages.filter((fileSection) => {
- if (fileSection.base64Data === null) return true;
- if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length === 0;
- return fileSection.base64Data === '';
- });
- if (missingImages.length > 0) {
- setUploadMessage(
- `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.map((f) => f.title).join(', ')}.`
- );
- setShowToast(true);
- return;
- }
+  // التحقق من كل صورة مطلوبة
+  const missingImages = requiredImages.filter((fileSection) => {
+    if (fileSection.base64Data === null) return true;
+    if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length === 0;
+    return fileSection.base64Data === '';
+  });
+  if (missingImages.length > 0) {
+    setUploadMessage(
+      `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.map((f) => f.title).join(', ')}.`
+    );
+    setShowToast(true);
+    return;
+  }
 
- // التحقق من وجود بيانات المستخدم
- if (!user || !user.name || !user.branch) {
- setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
- setShowToast(true);
- return;
- }
+  // التحقق من وجود بيانات المستخدم
+  if (!user || !user.name || !user.branch) {
+    setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
+    setShowToast(true);
+    return;
+  }
 
- setIsUploading(true);
- setUploadMessage('');
- setIsSuccess(false);
+  setIsUploading(true);
+  setUploadMessage('');
+  setIsSuccess(false);
 
- try {
- const airtableData = {
- fields: {} as Record<string, string | string[]>,
- };
+  try {
+    const airtableData = {
+      fields: {} as Record<string, string | string[]>,
+    };
 
- airtableData.fields['السيارة'] = car.trim();
- airtableData.fields['اللوحة'] = plate.trim();
- airtableData.fields['العقد'] = contractNum.toString();
- airtableData.fields['نوع العملية'] = operationType;
- airtableData.fields['الموظف'] = user.name; // إضافة اسم الموظف
- airtableData.fields['الفرع'] = user.branch; // إضافة الفرع
+    airtableData.fields['السيارة'] = car.trim();
+    airtableData.fields['اللوحة'] = plate.trim();
+    airtableData.fields['العقد'] = contractNum.toString();
+    airtableData.fields['نوع العملية'] = operationType;
+    airtableData.fields['الموظف'] = user.name; // إضافة اسم الموظف
+    airtableData.fields['الفرع'] = user.branch; // إضافة الفرع
 
- files.forEach((fileSection) => {
- if (fileSection.base64Data) {
- airtableData.fields[fileSection.title] = fileSection.base64Data;
- }
- });
+    files.forEach((fileSection) => {
+      if (fileSection.base64Data) {
+        airtableData.fields[fileSection.title] = fileSection.base64Data;
+      }
+    });
 
- console.log('Data to be sent to Airtable:', JSON.stringify(airtableData, null, 2));
+    console.log('Data to be sent to Airtable:', JSON.stringify(airtableData, null, 2));
 
- const controller = new AbortController();
- const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
- try {
- const response = await fetch('/api/cheakin', {
- method: 'POST',
- headers: {
- 'Content-Type': 'application/json',
- },
- body: JSON.stringify(airtableData),
- signal: controller.signal,
- });
+    try {
+      const response = await fetch('/api/cheakin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(airtableData),
+        signal: controller.signal,
+      });
 
- clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
- const result = await response.json();
- if (result.success) {
- setIsSuccess(true);
- setShowToast(true);
- setUploadMessage('تم بنجاح رفع التشييك');
- setFiles(
- fieldTitles.map((title, index) => ({
- id: Date.now() + index + Math.random(),
- base64Data: null,
- title: title,
- multiple: index === fieldTitles.length - 1,
- previewUrls: [],
- }))
- );
- setCar('');
- setCarSearch('');
- setPlate('');
- setPlateSearch('');
- setContract('');
- setPreviousRecord(null);
- fileInputRefs.current.forEach((ref) => {
- if (ref) ref.value = '';
- });
- } else {
- throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
- }
- } catch (fetchError: any) {
- clearTimeout(timeoutId);
- console.error('Error during upload:', fetchError);
- if (fetchError.name === 'AbortError') {
- setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
- } else {
- setUploadMessage(
- `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
- );
- }
- setShowToast(true);
- }
- } catch (error: any) {
- console.error('Error preparing upload:', error);
- setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
- setShowToast(true);
- } finally {
- setIsUploading(false);
- }
- };
+      const result = await response.json();
+      if (result.success) {
+        setIsSuccess(true);
+        setShowToast(true);
+        setUploadMessage('تم بنجاح رفع التشييك');
+        setFiles(
+          fieldTitles.map((title, index) => ({
+            id: Date.now() + index + Math.random(),
+            base64Data: null,
+            title: title,
+            multiple: index === fieldTitles.length - 1,
+            previewUrls: [],
+          }))
+        );
+        setCar('');
+        setCarSearch('');
+        setPlate('');
+        setPlateSearch('');
+        setContract('');
+        setPreviousRecord(null);
+        fileInputRefs.current.forEach((ref) => {
+          if (ref) ref.value = '';
+        });
+
+        // إغلاق الموديل تلقائيًا بعد 3 ثوانٍ
+        setTimeout(() => {
+          setIsSuccess(false);
+        }, 3000);
+      } else {
+        throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
+      }
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      console.error('Error during upload:', fetchError);
+      if (fetchError.name === 'AbortError') {
+        setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+      } else {
+        setUploadMessage(
+          `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
+        );
+      }
+      setShowToast(true);
+    }
+  } catch (error: any) {
+    console.error('Error preparing upload:', error);
+    setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
+    setShowToast(true);
+  } finally {
+    setIsUploading(false);
+  }
+};
 
  const handleCarSelect = (selectedCar: string) => {
  setCar(selectedCar);
