@@ -1134,10 +1134,9 @@ export default function CheckInPage() {
   const [showPlateList, setShowPlateList] = useState<boolean>(false);
   const [contract, setContract] = useState<string>('');
   const [operationType] = useState<string>('دخول');
-  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [modalState, setModalState] = useState<{ type: 'uploading' | 'success' } | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string>('');
   const [showToast, setShowToast] = useState<boolean>(false);
-  const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [previousRecord, setPreviousRecord] = useState<AirtableRecord | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
@@ -1151,6 +1150,7 @@ export default function CheckInPage() {
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // التحقق من تسجيل الدخول وجلب بيانات الموظف
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -1199,21 +1199,17 @@ export default function CheckInPage() {
     }
   }, [showToast]);
 
+  // Handle modal auto-close for success state
   useEffect(() => {
-    console.log('isSuccess changed:', isSuccess);
-    if (isSuccess) {
-      console.log('Modal shown with isSuccess:', isSuccess);
+    if (modalState?.type === 'success') {
+      console.log('Modal shown with success state');
       const timer = setTimeout(() => {
         console.log('Closing modal');
-        setIsSuccess(false);
+        setModalState(null);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isSuccess]);
-
-  useEffect(() => {
-    console.log('Modal rendering check:', { isUploading, isSuccess });
-  }, [isUploading, isSuccess]);
+  }, [modalState]);
 
   const fetchPreviousRecord = async () => {
     if (!contract.trim()) {
@@ -1413,7 +1409,7 @@ export default function CheckInPage() {
       };
       reader.onerror = () => {
         console.warn('FileReader error, falling back to fileToBase64');
-        fileToBase64(file).then(resolve).catch(reject);
+        fileToBase4(file).then(resolve).catch(reject);
       };
     });
   };
@@ -1505,7 +1501,7 @@ export default function CheckInPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    console.log('handleSubmit called with states:', { isUploading, isSuccess });
+    console.log('handleSubmit called with modalState:', modalState);
 
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
@@ -1551,10 +1547,9 @@ export default function CheckInPage() {
       return;
     }
 
-    setIsUploading(true);
+    setModalState({ type: 'uploading' });
     setUploadMessage('');
-    setIsSuccess(false);
-    console.log('Starting upload with states:', { isUploading: true, isSuccess: false });
+    console.log('Starting upload with modalState:', { type: 'uploading' });
 
     try {
       const airtableData = {
@@ -1594,7 +1589,7 @@ export default function CheckInPage() {
         const result = await response.json();
         console.log('API response:', result);
         if (result.success) {
-          setIsSuccess(true);
+          setModalState({ type: 'success' });
           setShowToast(true);
           setUploadMessage('تم بنجاح رفع التشييك');
           setFiles(
@@ -1615,7 +1610,7 @@ export default function CheckInPage() {
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
-          console.log('Upload successful, setting isSuccess:', true);
+          console.log('Upload successful, setting modalState:', { type: 'success' });
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
@@ -1636,8 +1631,10 @@ export default function CheckInPage() {
       setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
       setShowToast(true);
     } finally {
-      setIsUploading(false);
-      console.log('Upload complete, resetting isUploading:', false);
+      if (modalState?.type !== 'success') {
+        setModalState(null);
+      }
+      console.log('Upload complete, modalState:', modalState);
     }
   };
 
@@ -1680,6 +1677,12 @@ export default function CheckInPage() {
       setCurrentImageIndex(newIndex);
       setPreviewImage(previewImages[newIndex]);
     }
+  };
+
+  // Manual close for modal
+  const closeModal = () => {
+    console.log('Manually closing modal');
+    setModalState(null);
   };
 
   return (
@@ -1983,32 +1986,39 @@ export default function CheckInPage() {
             <div className="mb-4 text-center mt-4">
               <button
                 type="submit"
-                disabled={isUploading}
+                disabled={modalState?.type === 'uploading'}
                 className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${
-                  isUploading ? 'bg-gray-400' : ''
+                  modalState?.type === 'uploading' ? 'bg-gray-400' : ''
                 }`}
               >
-                {isUploading ? 'جاري الرفع...' : 'رفع البيانات'}
+                {modalState?.type === 'uploading' ? 'جاري الرفع...' : 'رفع البيانات'}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {(isUploading || isSuccess) && (
+      {modalState && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
-            {isUploading ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center relative">
+            {modalState.type === 'uploading' ? (
               <>
                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mb-4"></div>
                 <span className="text-gray-600 dark:text-gray-300 text-lg">جاري الرفع...</span>
               </>
-            ) : isSuccess ? (
+            ) : (
               <>
                 <FaCheckCircle className="text-green-500 text-5xl mb-4" />
                 <span className="text-gray-600 dark:text-gray-300 text-lg">تم الرفع بنجاح</span>
+                <button
+                  onClick={closeModal}
+                  className="mt-4 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                  aria-label="إغلاق"
+                >
+                  إغلاق
+                </button>
               </>
-            ) : null}
+            )}
           </div>
         </div>
       )}
@@ -2050,20 +2060,11 @@ export default function CheckInPage() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
               )}
-              <img
-                src={previewImage}
-                alt="معاينة الصورة"
-                className="max-h-[70vh] max-w-full object-contain rounded"
-              />
+              <img src={previewImage} alt="معاينة الصورة" className="max-h-[70vh] max-w-full object-contain rounded" />
               {previewImages.length > 1 && (
                 <button
                   onClick={goToNextImage}
@@ -2082,12 +2083,7 @@ export default function CheckInPage() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               )}
