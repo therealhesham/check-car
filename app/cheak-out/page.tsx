@@ -801,6 +801,7 @@ export default function UploadPage() {
     }
   }, []);
 
+  // مراقبة تغيير الوضع المظلم
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDarkMode(mediaQuery.matches);
@@ -813,10 +814,12 @@ export default function UploadPage() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  // إنشاء مراجع لمدخلات الملفات
   useEffect(() => {
     fileInputRefs.current = Array(files.length).fill(null);
   }, [files.length]);
 
+  // إغلاق قوائم السيارات واللوحات عند النقر خارجها
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (carInputRef.current && !carInputRef.current.contains(event.target as Node)) {
@@ -830,6 +833,7 @@ export default function UploadPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // إغلاق الـ Toast تلقائيًا
   useEffect(() => {
     if (showToast && !hasExitRecord) {
       const timer = setTimeout(() => {
@@ -841,6 +845,17 @@ export default function UploadPage() {
     }
   }, [showToast, hasExitRecord]);
 
+  // إغلاق موديل "تم الرفع بنجاح" تلقائيًا
+  useEffect(() => {
+    if (isSuccess) {
+      const timer = setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000); // إغلاق الموديل بعد 3 ثوانٍ
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess]);
+
+  // جلب السجل السابق عند تغيير رقم العقد
   useEffect(() => {
     if (contract.trim()) {
       fetchPreviousRecord();
