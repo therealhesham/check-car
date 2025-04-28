@@ -1190,13 +1190,26 @@ export default function CheckInPage() {
 
   useEffect(() => {
     if (showToast) {
+      console.log('Toast shown with message:', uploadMessage);
       const timer = setTimeout(() => {
+        console.log('Closing toast');
         setShowToast(false);
         setUploadMessage('');
       }, 3000);
       return () => clearTimeout(timer);
     }
   }, [showToast]);
+
+  useEffect(() => {
+    if (isSuccess) {
+      console.log('Modal shown with isSuccess:', isSuccess);
+      const timer = setTimeout(() => {
+        console.log('Closing modal');
+        setIsSuccess(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess]);
 
   const fetchPreviousRecord = async () => {
     if (!contract.trim()) {
@@ -1580,6 +1593,7 @@ export default function CheckInPage() {
         clearTimeout(timeoutId);
 
         const result = await response.json();
+        console.log('API response:', result);
         if (result.success) {
           setIsSuccess(true);
           setShowToast(true);
@@ -1602,13 +1616,6 @@ export default function CheckInPage() {
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
-
-          // إغلاق الموديل والتوست تلقائيًا بعد 3 ثوانٍ
-          setTimeout(() => {
-            setIsSuccess(false);
-            setShowToast(false);
-            setUploadMessage('');
-          }, 3000);
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
