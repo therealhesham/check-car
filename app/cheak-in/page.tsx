@@ -1151,7 +1151,6 @@ export default function CheckInPage() {
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // التحقق من تسجيل الدخول وجلب بيانات الموظف
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -1201,16 +1200,20 @@ export default function CheckInPage() {
   }, [showToast]);
 
   useEffect(() => {
-    console.log('isSuccess changed:', isSuccess); // Debugging log
+    console.log('isSuccess changed:', isSuccess);
     if (isSuccess) {
       console.log('Modal shown with isSuccess:', isSuccess);
       const timer = setTimeout(() => {
         console.log('Closing modal');
-        setIsSuccess(false); // Reset isSuccess to close the modal
-      }, 3000); // Close after 3 seconds
+        setIsSuccess(false);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [isSuccess]);
+
+  useEffect(() => {
+    console.log('Modal rendering check:', { isUploading, isSuccess });
+  }, [isUploading, isSuccess]);
 
   const fetchPreviousRecord = async () => {
     if (!contract.trim()) {
@@ -1502,7 +1505,7 @@ export default function CheckInPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    console.log('handleSubmit called with states:', { isUploading, isSuccess }); // Debugging log
+    console.log('handleSubmit called with states:', { isUploading, isSuccess });
 
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
@@ -1551,7 +1554,7 @@ export default function CheckInPage() {
     setIsUploading(true);
     setUploadMessage('');
     setIsSuccess(false);
-    console.log('Starting upload with states:', { isUploading: true, isSuccess: false }); // Debugging log
+    console.log('Starting upload with states:', { isUploading: true, isSuccess: false });
 
     try {
       const airtableData = {
@@ -1612,7 +1615,7 @@ export default function CheckInPage() {
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
-          console.log('Upload successful, setting isSuccess:', true); // Debugging log
+          console.log('Upload successful, setting isSuccess:', true);
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
@@ -1634,7 +1637,7 @@ export default function CheckInPage() {
       setShowToast(true);
     } finally {
       setIsUploading(false);
-      console.log('Upload complete, resetting isUploading:', false); // Debugging log
+      console.log('Upload complete, resetting isUploading:', false);
     }
   };
 
@@ -1992,7 +1995,6 @@ export default function CheckInPage() {
         </div>
       </div>
 
-      {console.log('Modal rendering check:', { isUploading, isSuccess })} {/* Debugging log */}
       {(isUploading || isSuccess) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
