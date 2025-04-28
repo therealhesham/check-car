@@ -1409,7 +1409,7 @@ export default function CheckInPage() {
       };
       reader.onerror = () => {
         console.warn('FileReader error, falling back to fileToBase64');
-        fileToBase4(file).then(resolve).catch(reject);
+        fileToBase64(file).then(resolve).catch(reject);
       };
     });
   };
