@@ -1201,12 +1201,13 @@ export default function CheckInPage() {
   }, [showToast]);
 
   useEffect(() => {
+    console.log('isSuccess changed:', isSuccess); // Debugging log
     if (isSuccess) {
       console.log('Modal shown with isSuccess:', isSuccess);
       const timer = setTimeout(() => {
         console.log('Closing modal');
-        setIsSuccess(false);
-      }, 3000);
+        setIsSuccess(false); // Reset isSuccess to close the modal
+      }, 3000); // Close after 3 seconds
       return () => clearTimeout(timer);
     }
   }, [isSuccess]);
@@ -1228,7 +1229,6 @@ export default function CheckInPage() {
     abortControllerRef.current = new AbortController();
 
     try {
-      // التحقق من وجود سجل دخول سابق
       const entryResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=دخول`,
         {
@@ -1247,7 +1247,6 @@ export default function CheckInPage() {
 
       const entryData: ApiResponse = await entryResponse.json();
       if (entryData.success && entryData.results.length > 0) {
-        // إذا تم العثور على سجل دخول سابق
         setPreviousRecord(null);
         setUploadMessage('تم تسجيل عملية دخول لهذا العقد من قبل.');
         setShowToast(true);
@@ -1255,10 +1254,9 @@ export default function CheckInPage() {
         setCarSearch('');
         setPlate('');
         setPlateSearch('');
-        return; // إيقاف العملية
+        return;
       }
 
-      // إذا لم يكن هناك سجل دخول، جلب سجل الخروج
       const exitResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
         {
@@ -1277,7 +1275,7 @@ export default function CheckInPage() {
 
       const exitData: ApiResponse = await exitResponse.json();
       if (exitData.success && exitData.results.length > 0) {
-        const exitRecord = exitData.results[0]; // نأخذ أول سجل خروج
+        const exitRecord = exitData.results[0];
         setPreviousRecord(exitRecord);
         if (!car && exitRecord.fields['السيارة']) {
           setCar(exitRecord.fields['السيارة']);
@@ -1504,14 +1502,14 @@ export default function CheckInPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // التحقق من ملء جميع الحقول النصية المطلوبة
+    console.log('handleSubmit called with states:', { isUploading, isSuccess }); // Debugging log
+
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;
     }
 
-    // التحقق من أن رقم العقد رقم صالح
     const contractNum = parseFloat(contract);
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
@@ -1519,7 +1517,6 @@ export default function CheckInPage() {
       return;
     }
 
-    // التحقق من وجود أي صورة مطلوبة
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'صور اخرى');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.base64Data === null) return false;
@@ -1532,7 +1529,6 @@ export default function CheckInPage() {
       return;
     }
 
-    // التحقق من كل صورة مطلوبة
     const missingImages = requiredImages.filter((fileSection) => {
       if (fileSection.base64Data === null) return true;
       if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length === 0;
@@ -1546,7 +1542,6 @@ export default function CheckInPage() {
       return;
     }
 
-    // التحقق من وجود بيانات المستخدم
     if (!user || !user.name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
@@ -1556,6 +1551,7 @@ export default function CheckInPage() {
     setIsUploading(true);
     setUploadMessage('');
     setIsSuccess(false);
+    console.log('Starting upload with states:', { isUploading: true, isSuccess: false }); // Debugging log
 
     try {
       const airtableData = {
@@ -1566,8 +1562,8 @@ export default function CheckInPage() {
       airtableData.fields['اللوحة'] = plate.trim();
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
-      airtableData.fields['الموظف'] = user.name; // إضافة اسم الموظف
-      airtableData.fields['الفرع'] = user.branch; // إضافة الفرع
+      airtableData.fields['الموظف'] = user.name;
+      airtableData.fields['الفرع'] = user.branch;
 
       files.forEach((fileSection) => {
         if (fileSection.base64Data) {
@@ -1616,6 +1612,7 @@ export default function CheckInPage() {
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
+          console.log('Upload successful, setting isSuccess:', true); // Debugging log
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
@@ -1637,6 +1634,7 @@ export default function CheckInPage() {
       setShowToast(true);
     } finally {
       setIsUploading(false);
+      console.log('Upload complete, resetting isUploading:', false); // Debugging log
     }
   };
 
@@ -1687,7 +1685,7 @@ export default function CheckInPage() {
       <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900 p-2 transition-colors duration-200">
         <div className="w-full max-w-4xl p-3 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
           <h1 className="text-xl sm:text-2xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-4">
-            رفع بيانات تشييك الدخول 
+            رفع بيانات تشييك الدخول
           </h1>
           <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-300">
             ملاحظة: الصور الكبيرة قد تستغرق وقتًا أطول للرفع. الحد الأقصى لكل صورة هو 32 ميغابايت.
@@ -1994,6 +1992,7 @@ export default function CheckInPage() {
         </div>
       </div>
 
+      {console.log('Modal rendering check:', { isUploading, isSuccess })} {/* Debugging log */}
       {(isUploading || isSuccess) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
