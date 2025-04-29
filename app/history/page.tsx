@@ -535,11 +535,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Navbar from '@/public/components/navbar';
-import { FaHistory, FaSearch } from 'react-icons/fa';
+import { FaHistory, FaSearch, FaChevronDown } from 'react-icons/fa';
 import Image from 'next/image';
-import { carList } from '@/lib/car';
-import { licenseList } from '@/lib/License';
-import { branchList } from '@/lib/branchList';
 import { useRouter } from 'next/navigation';
 
 interface Record {
@@ -564,6 +561,11 @@ interface ApiResponse {
   pageSize: number;
   error?: string;
   details?: any;
+  filters?: {
+    cars: string[];
+    plates: string[];
+    branches: string[];
+  };
 }
 
 const fieldTitles = [
@@ -610,12 +612,17 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [expandedRecords, setExpandedRecords] = useState<{ [key: string]: boolean }>({});
+  const [cars, setCars] = useState<string[]>([]); // حالة لقائمة السيارات
+  const [plates, setPlates] = useState<string[]>([]); // حالة لقائمة اللوحات
+  const [branches, setBranches] = useState<string[]>([]); // حالة لقائمة الفروع
   const pageSize = 50;
 
   const operationTypeRef = useRef<HTMLDivElement>(null);
   const carFilterRef = useRef<HTMLDivElement>(null);
   const plateFilterRef = useRef<HTMLDivElement>(null);
   const branchFilterRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const operationTypes = ['دخول', 'خروج'];
@@ -659,6 +666,39 @@ export default function HistoryPage() {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // جلب قوائم الفلاتر عند تحميل الصفحة
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        console.log('Fetching filter lists from API...');
+        const response = await fetch('/api/history?fetchFilters=true', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch filters');
+        }
+
+        const data: ApiResponse = await response.json();
+        if (data.success && data.filters) {
+          setCars(data.filters.cars);
+          setPlates(data.filters.plates);
+          setBranches(data.filters.branches);
+        } else {
+          throw new Error(data.message || 'Failed to fetch filters');
+        }
+      } catch (err: any) {
+        console.error('Error fetching filters:', err);
+        setError('حدث خطأ أثناء جلب قوائم الفلاتر');
+      }
+    };
+
+    fetchFilters();
   }, []);
 
   // جلب السجلات
@@ -737,15 +777,15 @@ export default function HistoryPage() {
     type.toLowerCase().includes(operationTypeSearch.toLowerCase())
   );
 
-  const filteredCars = carList.filter((car) =>
+  const filteredCars = cars.filter((car) =>
     car.toLowerCase().includes(carSearch.toLowerCase())
   );
 
-  const filteredPlates = licenseList.filter((plate) =>
+  const filteredPlates = plates.filter((plate) =>
     plate.toLowerCase().includes(plateSearch.toLowerCase())
   );
 
-  const filteredBranches = branchList.filter((branch) =>
+  const filteredBranches = branches.filter((branch) =>
     branch.toLowerCase().includes(branchSearch.toLowerCase())
   );
 
@@ -799,6 +839,25 @@ export default function HistoryPage() {
 
   const closeImageModal = () => {
     setSelectedImage(null);
+  };
+
+  const toggleImages = (recordId: string) => {
+    setExpandedRecords((prev) => ({
+      ...prev,
+      [recordId]: !prev[recordId],
+    }));
+  };
+
+  const getAllImages = (record: Record) => {
+    const images: { url: string; title: string; index: number }[] = [];
+    fieldTitles.forEach((title) => {
+      if (record.fields[title]?.length > 0) {
+        record.fields[title].forEach((url: string, index: number) => {
+          images.push({ url, title, index });
+        });
+      }
+    });
+    return images;
   };
 
   return (
@@ -1038,54 +1097,88 @@ export default function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((record) => (
-                  <tr
-                    key={record.id}
-                    className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                      {record.fields['العقد'] ?? '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                      {record.fields['السيارة'] ?? '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                      {record.fields['اللوحة'] ?? '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                      {record.fields['نوع العملية'] ?? '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                      {record.fields['الموظف'] ?? '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                      {record.fields['الفرع'] ?? '-'}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex flex-wrap gap-2">
-                        {fieldTitles.map((title) =>
-                          record.fields[title]?.length > 0 ? (
-                            record.fields[title].map((url: string, index: number) => (
+                {filteredRecords.map((record) => {
+                  const allImages = getAllImages(record);
+                  const isExpanded = expandedRecords[record.id] || false;
+
+                  return (
+                    <tr
+                      key={record.id}
+                      className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.fields['العقد'] ?? '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.fields['السيارة'] ?? '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.fields['اللوحة'] ?? '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.fields['نوع العملية'] ?? '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.fields['الموظف'] ?? '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.fields['الفرع'] ?? '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {allImages.length > 0 ? (
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
                               <button
-                                key={`${title}-${index}`}
-                                onClick={() => setSelectedImage(url)}
+                                onClick={() => setSelectedImage(allImages[0].url)}
                                 className="relative w-12 h-12"
                               >
                                 <Image
-                                  src={url}
-                                  alt={`${title}-${index}`}
+                                  src={allImages[0].url}
+                                  alt={`${allImages[0].title}-${allImages[0].index}`}
                                   fill
                                   className="object-cover rounded"
                                   sizes="48px"
                                 />
                               </button>
-                            ))
-                          ) : null
+                              {allImages.length > 1 && (
+                                <button
+                                  onClick={() => toggleImages(record.id)}
+                                  className="sm:hidden text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex items-center"
+                                  title="عرض/إخفاء الصور"
+                                >
+                                  <FaChevronDown
+                                    className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''} text-2xl`}
+                                  />
+                                </button>
+                              )}
+                            </div>
+                            <div
+                              className={`flex flex-wrap gap-2 ${isExpanded ? 'block' : 'hidden'} sm:flex`}
+                            >
+                              {allImages.slice(1).map((image) => (
+                                <button
+                                  key={`${image.title}-${image.index}`}
+                                  onClick={() => setSelectedImage(image.url)}
+                                  className="relative w-12 h-12"
+                                >
+                                  <Image
+                                    src={image.url}
+                                    alt={`${image.title}-${image.index}`}
+                                    fill
+                                    className="object-cover rounded"
+                                    sizes="48px"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 dark:text-gray-400">لا توجد صور</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1114,8 +1207,11 @@ export default function HistoryPage() {
         )}
 
         {selectedImage && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-            <div className="relative max-w-3xl w-full">
+          <div
+            ref={modalRef}
+            className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-start z-50 overflow-y-auto"
+          >
+            <div className="relative max-w-3xl w-full mt-16 mb-16">
               <button
                 onClick={closeImageModal}
                 className="absolute top-4 right-4 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center"
