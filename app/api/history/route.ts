@@ -269,18 +269,18 @@ const fieldTitles = [
 ];
 
 // فحص الوصول إلى الجدول
-async function verifyTableAccess(): Promise<boolean> {
+async function verifyTableAccess(tableName: string): Promise<boolean> {
   try {
-    console.log(`Verifying access to Airtable table: ${airtableTableName}`);
-    const records = await base(airtableTableName)
+    console.log(`Verifying access to Airtable table: ${tableName}`);
+    const records = await base(tableName)
       .select({
         maxRecords: 1,
       })
       .firstPage();
-    console.log('Table access verified:', records.length, 'records retrieved');
+    console.log(`Table access verified for ${tableName}: ${records.length} records retrieved`);
     return true;
   } catch (error: any) {
-    console.error('Error verifying table access:', {
+    console.error(`Error verifying table access for ${tableName}:`, {
       message: error.message,
       status: error.status,
       errorCode: error.error,
@@ -339,12 +339,65 @@ async function getTotalRecords(
   }
 }
 
+// جلب قوائم الفلاتر من جداول Airtable
+async function fetchFilters(): Promise<{
+  cars: string[];
+  plates: string[];
+  branches: string[];
+}> {
+  try {
+    console.log('Fetching filter lists from Airtable...');
+    
+    // جلب السيارات من جدول cars
+    const carsRecords = await base('cars').select({}).all();
+    const cars = carsRecords
+      .map(record => record.fields.Name as string) // تحديد النوع كنص
+      .filter(name => typeof name === 'string' && name.trim() !== '') // التأكد من أن القيمة نص وغير فارغة
+      .sort();
+
+    // جلب اللوحات من جدول license
+    const platesRecords = await base('license').select({}).all();
+    const plates = platesRecords
+      .map(record => record.fields.Name as string)
+      .filter(name => typeof name === 'string' && name.trim() !== '')
+      .sort();
+
+    // جلب الفروع من جدول branchList
+    const branchesRecords = await base('branchList').select({}).all();
+    const branches = branchesRecords
+      .map(record => record.fields.Name as string)
+      .filter(name => typeof name === 'string' && name.trim() !== '')
+      .sort();
+
+    console.log(`Fetched filters: ${cars.length} cars, ${plates.length} plates, ${branches.length} branches`);
+    return { cars, plates, branches };
+  } catch (error: any) {
+    console.error('Error fetching filter lists:', {
+      message: error.message,
+      status: error.status,
+      errorCode: error.error,
+      details: error.response?.data || error,
+    });
+    throw new Error(`Failed to fetch filter lists: ${error.message}`);
+  }
+}
+
 export async function GET(req: Request) {
   try {
     console.log('Starting fetch records from Airtable for history...');
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
+    // استخراج معلمات الاستعلام
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '50', 10);
+    const contractNumber = url.searchParams.get('contractNumber')?.trim();
+    const plateFilter = url.searchParams.get('plateFilter')?.trim();
+    const branchFilter = url.searchParams.get('branchFilter')?.trim();
+    const operationType = url.searchParams.get('operationType')?.trim();
+    const fetchFiltersParam = url.searchParams.get('fetchFilters') === 'true';
+
+    // التحقق من الوصول إلى الجدول الرئيسي
+    const hasAccess = await verifyTableAccess(airtableTableName);
     if (!hasAccess) {
       return NextResponse.json(
         {
@@ -355,15 +408,6 @@ export async function GET(req: Request) {
         { status: 403 }
       );
     }
-
-    // استخراج معلمات الاستعلام
-    const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '50', 10);
-    const contractNumber = url.searchParams.get('contractNumber')?.trim();
-    const plateFilter = url.searchParams.get('plateFilter')?.trim();
-    const branchFilter = url.searchParams.get('branchFilter')?.trim();
-    const operationType = url.searchParams.get('operationType')?.trim();
 
     // التحقق من أن رقم العقد صالح (رقم صحيح) إذا تم تمريره
     if (contractNumber && !/^\d+$/.test(contractNumber)) {
@@ -387,6 +431,18 @@ export async function GET(req: Request) {
         },
         { status: 400 }
       );
+    }
+
+    // تعريف filters مع نوع صريح
+    let filters: {
+      cars: string[];
+      plates: string[];
+      branches: string[];
+    } = { cars: [], plates: [], branches: [] };
+
+    // جلب قوائم الفلاتر إذا طُلب ذلك
+    if (fetchFiltersParam) {
+      filters = await fetchFilters();
     }
 
     // بناء صيغة الفلتر
@@ -416,7 +472,7 @@ export async function GET(req: Request) {
       .select({
         filterByFormula: filterFormula,
         sort: [{ field: 'createdTime', direction: 'desc' }],
-        maxRecords: filterFormula ? pageSize : pageSize * page, // تحسين الأداء عند استخدام فلتر
+        maxRecords: filterFormula ? pageSize : pageSize * page,
       })
       .all();
 
@@ -464,6 +520,7 @@ export async function GET(req: Request) {
       total,
       page,
       pageSize,
+      filters,
     });
   } catch (error: any) {
     console.error('Error fetching records from Airtable:', {
