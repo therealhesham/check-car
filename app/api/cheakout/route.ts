@@ -246,7 +246,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
-import axios from 'axios';
 
 // Define interface for the request data
 interface AirtableRequestData {
@@ -264,7 +263,7 @@ interface AirtableRecord {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '50mb', // Increased size limit for large Base64 data
+      sizeLimit: '10mb', // تقليل الحد لأننا لا نستخدم Base64
     },
   },
 };
@@ -274,28 +273,6 @@ const airtableApiKey = 'patH4avQdGYSC0oz4.b2bc135c01c9c5c44cfa2d8595850d75189ea9
 const airtableBaseId = 'app7Hc09WF8xul5T9';
 const airtableTableName = 'cheakcar';
 const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
-
-// دالة لرفع الصورة إلى imgBB
-async function uploadImageToImgBB(base64: string) {
-  try {
-    const base64Data = base64.split(',')[1]; // إزالة "data:image/png;base64,"
-    const formData = new FormData();
-    formData.append('image', base64Data);
-
-    console.log('Uploading image to imgBB...');
-    const response = await axios.post('https://api.imgbb.com/1/upload', formData, {
-      params: {
-        key: '960012ec48fff9b7d8bf3fe19f460320', // استخدم مفتاح imgBB الخاص بك
-      },
-    });
-
-    console.log('imgBB response:', response.data);
-    return response.data.data.url;
-  } catch (error) {
-    console.error('Error uploading image to imgBB:', error);
-    // throw new Error(`فشل في رفع الصورة إلى imgBB: ${error.message}`);
-  }
-}
 
 // Function to verify Airtable connection and table access
 async function verifyTableAccess(): Promise<boolean> {
@@ -369,31 +346,23 @@ async function uploadDirectly(data: Record<string, string | string[]>): Promise<
         }
         fields[key] = contractNum; // Store as number for Airtable
       } else if (key === 'صور اخرى' && Array.isArray(value)) {
-        // التحقق من أن جميع الصور بتنسيق Base64 صالح
-        if (!value.every((img) => img.startsWith('data:image/'))) {
-          throw new Error('جميع الصور في حقل صور اخرى يجب أن تكون بتنسيق Base64 صالح');
+        // التحقق من أن جميع الروابط صالحة
+        if (!value.every((url) => url.startsWith('https://i.ibb.co'))) {
+          throw new Error('جميع الروابط في حقل صور اخرى يجب أن تكون روابط ImgBB صالحة');
         }
-        // رفع كل صورة إلى imgBB وتخزين الروابط كـ Attachments
-        const imageUrls = await Promise.all(
-          value.map(async (img) => {
-            const url = await uploadImageToImgBB(img);
-            return { url, filename: `${key}_${Date.now()}.png` };
-          })
-        );
-        fields[key] = imageUrls; // تخزين الروابط كـ Attachments
+        fields[key] = value.map((url) => ({ url, filename: `${key}_${Date.now()}.jpg` }));
       } else if (typeof value === 'string' && fieldTitles.includes(key)) {
-        // معالجة الحقول التي تحتوي على صورة واحدة
-        if (!value.startsWith('data:image/')) {
-          throw new Error(`الصورة في حقل ${key} يجب أن تكون بتنسيق Base64 صالح (يبدأ بـ data:image/)`);
+        // معالجة الحقول التي تحتوي على رابط صورة واحد
+        if (!value.startsWith('https://i.ibb.co')) {
+          throw new Error(`رابط الصورة في حقل ${key} يجب أن يكون رابط ImgBB صالح`);
         }
-        const imageUrl = await uploadImageToImgBB(value);
-        fields[key] = [{ url: imageUrl, filename: `${key}_${Date.now()}.png` }]; // تخزين رابط الصورة كـ Attachment
+        fields[key] = [{ url: value, filename: `${key}_${Date.now()}.jpg` }];
       } else if (key === 'الموظف' || key === 'الفرع') {
         // التحقق من أن الحقول النصية ليست فارغة
         if (!value || (typeof value === 'string' && value.trim() === '')) {
           throw new Error(`حقل ${key} لا يمكن أن يكون فارغًا`);
         }
-        fields[key] = value; // تخزين حقل الموظف أو الفرع كنص
+        fields[key] = value;
       } else {
         fields[key] = value; // تخزين الحقول النصية أو غيرها كما هي
       }
@@ -424,12 +393,12 @@ async function uploadDirectly(data: Record<string, string | string[]>): Promise<
 
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.json() as AirtableRequestData;
+    const data = (await req.json()) as AirtableRequestData;
     console.log('Processing data for upload...', Object.keys(data.fields).length, 'fields');
 
     // Check if at least one image is provided
     const hasImage = Object.entries(data.fields).some(([key, value]) =>
-      fieldTitles.includes(key) && (typeof value === 'string' ? value.startsWith('data:image/') : Array.isArray(value))
+      fieldTitles.includes(key) && (typeof value === 'string' ? value.startsWith('https://i.ibb.co') : Array.isArray(value))
     );
     if (!hasImage) {
       return NextResponse.json(
