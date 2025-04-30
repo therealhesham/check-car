@@ -706,7 +706,7 @@ interface FileSection {
   title: string;
   multiple: boolean;
   previewUrls: string[];
-  isUploading?: boolean; // حقل جديد لتتبع حالة الرفع
+  isUploading: boolean; // لتتبع حالة الرفع داخليًا
 }
 
 interface User {
@@ -1055,8 +1055,8 @@ export default function UploadPage() {
           fileSection.id === id
             ? {
                 ...fileSection,
-                imageUrls: imageUrls,
-                previewUrls: imageUrls, // تحديث المعاينات بروابط ImgBB
+                imageUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
+                previewUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
                 isUploading: false,
               }
             : fileSection
@@ -1177,7 +1177,7 @@ export default function UploadPage() {
       return;
     }
 
-    // التحقق من أن جميع الصور قد اكتمل رفعها
+    // التحقق من اكتمال رفع جميع الصور
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
@@ -1430,11 +1430,6 @@ export default function UploadPage() {
                                   alt={`صورة ${previewIndex + 1}`}
                                   className="h-full w-full object-cover rounded"
                                 />
-                                {fileSection.isUploading && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
-                                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
-                                  </div>
-                                )}
                                 <button
                                   type="button"
                                   onClick={() => removePreviewImage(fileSection.id, previewIndex)}
@@ -1459,11 +1454,6 @@ export default function UploadPage() {
                               alt={fileSection.title}
                               className="max-h-full max-w-full object-contain rounded"
                             />
-                            {fileSection.isUploading && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
-                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
-                              </div>
-                            )}
                             <button
                               type="button"
                               onClick={() => removePreviewImage(fileSection.id, 0)}
