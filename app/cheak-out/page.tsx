@@ -700,8 +700,13 @@ import { carList } from '@/lib/car';
 import { licenseList } from '@/lib/License';
 import { FaCheckCircle } from 'react-icons/fa';
 
+// دالة لإنشاء معرف فريد
+const generateUniqueId = () => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 interface FileSection {
-  id: number;
+  id: string; // تغيير إلى string لضمان التفرد
   imageUrls: string | string[] | null;
   title: string;
   multiple: boolean;
@@ -763,7 +768,7 @@ export default function UploadPage() {
   ];
 
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
-    id: Date.now() + Math.random(),
+    id: generateUniqueId(),
     imageUrls: null,
     title: title,
     multiple: index === fieldTitles.length - 1,
@@ -968,12 +973,13 @@ export default function UploadPage() {
     }
   };
 
-  const handleFileChange = async (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
     const file = e.target.files[0];
-    // إنشاء رابط معاينة محلي
     const localPreviewUrl = URL.createObjectURL(file);
+
+    console.log(`Handling file change for section ID: ${id}, Title: ${files.find(f => f.id === id)?.title}`);
 
     // تحديث الحالة فورًا لعرض المعاينة
     setFiles((prevFiles) =>
@@ -982,7 +988,7 @@ export default function UploadPage() {
           ? {
               ...fileSection,
               previewUrls: [localPreviewUrl],
-              imageUrls: null, // إعادة تعيين imageUrls لضمان تحديث جديد
+              imageUrls: null,
               isUploading: true,
             }
           : fileSection
@@ -990,7 +996,6 @@ export default function UploadPage() {
     );
 
     try {
-      // رفع الصورة في الخلفية
       const imageUrl = await uploadImageToImgBB(file);
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
@@ -998,19 +1003,18 @@ export default function UploadPage() {
             ? {
                 ...fileSection,
                 imageUrls: imageUrl,
-                previewUrls: [imageUrl], // تحديث المعاينة برابط ImgBB
+                previewUrls: [imageUrl],
                 isUploading: false,
               }
             : fileSection
         )
       );
-      // تنظيف الرابط المؤقت
       URL.revokeObjectURL(localPreviewUrl);
+      console.log(`Successfully updated section ID: ${id} with ImgBB URL: ${imageUrl}`);
     } catch (error: any) {
-      console.error('Error uploading file:', error);
+      console.error(`Error uploading file for section ID: ${id}:`, error);
       setUploadMessage(`حدث خطأ أثناء رفع الصورة: ${error.message}`);
       setShowToast(true);
-      // إعادة الحالة إلى الوضع الافتراضي في حالة الفشل
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === id
@@ -1027,14 +1031,14 @@ export default function UploadPage() {
     }
   };
 
-  const handleMultipleFileChange = async (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
     const selectedFiles = Array.from(e.target.files);
-    // إنشاء روابط معاينة محلية
     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
 
-    // تحديث الحالة فورًا لعرض المعاينات
+    console.log(`Handling multiple file change for section ID: ${id}, Title: ${files.find(f => f.id === id)?.title}`);
+
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
@@ -1048,7 +1052,6 @@ export default function UploadPage() {
     );
 
     try {
-      // رفع الصور في الخلفية
       const uploadPromises = selectedFiles.map((file) => uploadImageToImgBB(file));
       const imageUrls = await Promise.all(uploadPromises);
       setFiles((prevFiles) =>
@@ -1063,13 +1066,12 @@ export default function UploadPage() {
             : fileSection
         )
       );
-      // تنظيف الروابط المؤقتة
       localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+      console.log(`Successfully updated section ID: ${id} with ImgBB URLs: ${imageUrls.join(', ')}`);
     } catch (error: any) {
-      console.error('Error uploading files:', error);
+      console.error(`Error uploading files for section ID: ${id}:`, error);
       setUploadMessage(`حدث خطأ أثناء رفع الصور: ${error.message}`);
       setShowToast(true);
-      // إعادة الحالة إلى الوضع الافتراضي في حالة الفشل
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === id
@@ -1086,7 +1088,8 @@ export default function UploadPage() {
     }
   };
 
-  const removePreviewImage = (fileId: number, previewIndex: number) => {
+  const removePreviewImage = (fileId: string, previewIndex: number) => {
+    console.log(`Removing image at index ${previewIndex} for section ID: ${fileId}, Title: ${files.find(f => f.id === fileId)?.title}`);
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
@@ -1110,33 +1113,33 @@ export default function UploadPage() {
       })
     );
 
-    // إعادة تعيين input المرتبط بالقسم
     const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
-      fileInputRefs.current[index]!.value = ''; // إعادة تعيين قيمة الـ input
+      fileInputRefs.current[index]!.value = '';
+      console.log(`Reset input for section ID: ${fileId}`);
     }
   };
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
     return (element: HTMLInputElement | null) => {
       fileInputRefs.current[index] = element;
+      if (element) {
+        console.log(`Input ref set for index: ${index}, Title: ${files[index]?.title}`);
+      }
     };
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // تنظيف الحقول النصية
     const cleanInput = (input: string) => input.replace(/[^\w\s]/gi, '').trim();
 
-    // التحقق من ملء جميع الحقول النصية المطلوبة
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;
     }
 
-    // التحقق من أن رقم العقد يحتوي على أرقام فقط
     if (!/^\d+$/.test(contract.trim())) {
       setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
       setShowToast(true);
@@ -1150,14 +1153,12 @@ export default function UploadPage() {
       return;
     }
 
-    // التحقق من وجود سجل خروج سابق
     if (hasExitRecord) {
       setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
       setShowToast(true);
       return;
     }
 
-    // التحقق من وجود أي صورة مطلوبة
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'صور اخرى');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
@@ -1170,7 +1171,6 @@ export default function UploadPage() {
       return;
     }
 
-    // التحقق من كل صورة مطلوبة
     const missingImages = requiredImages.filter((fileSection) => {
       if (fileSection.imageUrls === null) return true;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length === 0;
@@ -1184,7 +1184,6 @@ export default function UploadPage() {
       return;
     }
 
-    // التحقق من اكتمال رفع جميع الصور
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
@@ -1192,7 +1191,6 @@ export default function UploadPage() {
       return;
     }
 
-    // التحقق من وجود بيانات المستخدم
     if (!user || !user.name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
@@ -1251,7 +1249,7 @@ export default function UploadPage() {
           setUploadMessage('تم بنجاح رفع التشييك');
           setFiles(
             fieldTitles.map((title, index) => ({
-              id: Date.now() + Math.random(),
+              id: generateUniqueId(),
               imageUrls: null,
               title: title,
               multiple: index === fieldTitles.length - 1,
@@ -1265,8 +1263,11 @@ export default function UploadPage() {
           setPlateSearch('');
           setContract('');
           setHasExitRecord(false);
-          fileInputRefs.current.forEach((ref) => {
-            if (ref) ref.value = '';
+          fileInputRefs.current.forEach((ref, index) => {
+            if (ref) {
+              ref.value = '';
+              console.log(`Reset input after submit for index: ${index}, Title: ${files[index]?.title}`);
+            }
           });
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
@@ -1448,7 +1449,7 @@ export default function UploadPage() {
                               </div>
                             ))}
                             <label
-                              htmlFor={`file-input-${index}`}
+                              htmlFor={`file-input-${fileSection.id}`}
                               className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
                             >
                               <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
@@ -1474,7 +1475,7 @@ export default function UploadPage() {
                       </div>
                     ) : (
                       <label
-                        htmlFor={`file-input-${index}`}
+                        htmlFor={`file-input-${fileSection.id}`}
                         className="cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32"
                       >
                         <svg
@@ -1503,7 +1504,7 @@ export default function UploadPage() {
                       </label>
                     )}
                     <input
-                      id={`file-input-${index}`}
+                      id={`file-input-${fileSection.id}`}
                       ref={setInputRef(index)}
                       type="file"
                       accept="image/*"
