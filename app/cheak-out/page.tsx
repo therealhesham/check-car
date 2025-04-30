@@ -706,6 +706,7 @@ interface FileSection {
   title: string;
   multiple: boolean;
   previewUrls: string[];
+  isUploading?: boolean; // حقل جديد لتتبع حالة الرفع
 }
 
 interface User {
@@ -767,6 +768,7 @@ export default function UploadPage() {
     title: title,
     multiple: index === fieldTitles.length - 1,
     previewUrls: [],
+    isUploading: false,
   }));
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
@@ -970,22 +972,57 @@ export default function UploadPage() {
     if (!e.target.files || e.target.files.length === 0) return;
 
     const file = e.target.files[0];
-    try {
-      const imageUrl = await uploadImageToImgBB(file);
-      const updatedFiles = files.map((fileSection) =>
+    // إنشاء رابط معاينة محلي
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    // تحديث الحالة فورًا لعرض المعاينة
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
               ...fileSection,
-              imageUrls: imageUrl,
-              previewUrls: [imageUrl],
+              previewUrls: [localPreviewUrl],
+              isUploading: true,
             }
           : fileSection
+      )
+    );
+
+    try {
+      // رفع الصورة في الخلفية
+      const imageUrl = await uploadImageToImgBB(file);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                imageUrls: imageUrl,
+                previewUrls: [imageUrl], // تحديث المعاينة برابط ImgBB
+                isUploading: false,
+              }
+            : fileSection
+        )
       );
-      setFiles(updatedFiles);
+      // تنظيف الرابط المؤقت
+      URL.revokeObjectURL(localPreviewUrl);
     } catch (error: any) {
       console.error('Error uploading file:', error);
       setUploadMessage(`حدث خطأ أثناء رفع الصورة: ${error.message}`);
       setShowToast(true);
+      // إعادة الحالة إلى الوضع الافتراضي في حالة الفشل
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                imageUrls: null,
+                previewUrls: [],
+                isUploading: false,
+              }
+            : fileSection
+        )
+      );
+      URL.revokeObjectURL(localPreviewUrl);
     }
   };
 
@@ -993,48 +1030,84 @@ export default function UploadPage() {
     if (!e.target.files || e.target.files.length === 0) return;
 
     const selectedFiles = Array.from(e.target.files);
-    try {
-      const uploadPromises = selectedFiles.map((file) => uploadImageToImgBB(file));
-      const imageUrls = await Promise.all(uploadPromises);
-      const currentFileSection = files.find((section) => section.id === id);
-      const updatedFiles = files.map((fileSection) =>
+    // إنشاء روابط معاينة محلية
+    const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
+
+    // تحديث الحالة فورًا لعرض المعاينات
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
               ...fileSection,
-              imageUrls: imageUrls,
-              previewUrls: [...(currentFileSection?.previewUrls || []), ...imageUrls],
+              previewUrls: [...(fileSection.previewUrls || []), ...localPreviewUrls],
+              isUploading: true,
             }
           : fileSection
+      )
+    );
+
+    try {
+      // رفع الصور في الخلفية
+      const uploadPromises = selectedFiles.map((file) => uploadImageToImgBB(file));
+      const imageUrls = await Promise.all(uploadPromises);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                imageUrls: imageUrls,
+                previewUrls: imageUrls, // تحديث المعاينات بروابط ImgBB
+                isUploading: false,
+              }
+            : fileSection
+        )
       );
-      setFiles(updatedFiles);
+      // تنظيف الروابط المؤقتة
+      localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     } catch (error: any) {
       console.error('Error uploading files:', error);
       setUploadMessage(`حدث خطأ أثناء رفع الصور: ${error.message}`);
       setShowToast(true);
+      // إعادة الحالة إلى الوضع الافتراضي في حالة الفشل
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                imageUrls: null,
+                previewUrls: [],
+                isUploading: false,
+              }
+            : fileSection
+        )
+      );
+      localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     }
   };
 
   const removePreviewImage = (fileId: number, previewIndex: number) => {
-    const updatedFiles = files.map((fileSection) => {
-      if (fileSection.id === fileId) {
-        const updatedPreviews = [...fileSection.previewUrls];
-        updatedPreviews.splice(previewIndex, 1);
-        let updatedImageUrls = fileSection.imageUrls;
-        if (Array.isArray(updatedImageUrls)) {
-          updatedImageUrls = [...updatedImageUrls];
-          updatedImageUrls.splice(previewIndex, 1);
-        } else if (previewIndex === 0) {
-          updatedImageUrls = null;
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) => {
+        if (fileSection.id === fileId) {
+          const updatedPreviews = [...fileSection.previewUrls];
+          updatedPreviews.splice(previewIndex, 1);
+          let updatedImageUrls = fileSection.imageUrls;
+          if (Array.isArray(updatedImageUrls)) {
+            updatedImageUrls = [...updatedImageUrls];
+            updatedImageUrls.splice(previewIndex, 1);
+          } else if (previewIndex === 0) {
+            updatedImageUrls = null;
+          }
+          return {
+            ...fileSection,
+            previewUrls: updatedPreviews,
+            imageUrls: updatedImageUrls,
+            isUploading: false,
+          };
         }
-        return {
-          ...fileSection,
-          previewUrls: updatedPreviews,
-          imageUrls: updatedImageUrls,
-        };
-      }
-      return fileSection;
-    });
-    setFiles(updatedFiles);
+        return fileSection;
+      })
+    );
   };
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
@@ -1104,6 +1177,14 @@ export default function UploadPage() {
       return;
     }
 
+    // التحقق من أن جميع الصور قد اكتمل رفعها
+    const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
+    if (isAnyUploading) {
+      setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
+      setShowToast(true);
+      return;
+    }
+
     // التحقق من وجود بيانات المستخدم
     if (!user || !user.name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
@@ -1168,6 +1249,7 @@ export default function UploadPage() {
               title: title,
               multiple: index === fieldTitles.length - 1,
               previewUrls: [],
+              isUploading: false,
             }))
           );
           setCar('');
@@ -1348,6 +1430,11 @@ export default function UploadPage() {
                                   alt={`صورة ${previewIndex + 1}`}
                                   className="h-full w-full object-cover rounded"
                                 />
+                                {fileSection.isUploading && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                                  </div>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => removePreviewImage(fileSection.id, previewIndex)}
@@ -1372,6 +1459,11 @@ export default function UploadPage() {
                               alt={fileSection.title}
                               className="max-h-full max-w-full object-contain rounded"
                             />
+                            {fileSection.isUploading && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
+                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                              </div>
+                            )}
                             <button
                               type="button"
                               onClick={() => removePreviewImage(fileSection.id, 0)}
