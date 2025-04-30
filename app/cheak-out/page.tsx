@@ -706,7 +706,7 @@ interface FileSection {
   title: string;
   multiple: boolean;
   previewUrls: string[];
-  isUploading: boolean; // لتتبع حالة الرفع داخليًا
+  isUploading: boolean;
 }
 
 interface User {
@@ -982,6 +982,7 @@ export default function UploadPage() {
           ? {
               ...fileSection,
               previewUrls: [localPreviewUrl],
+              imageUrls: null, // إعادة تعيين imageUrls لضمان تحديث جديد
               isUploading: true,
             }
           : fileSection
@@ -1108,6 +1109,12 @@ export default function UploadPage() {
         return fileSection;
       })
     );
+
+    // إعادة تعيين input المرتبط بالقسم
+    const index = files.findIndex((fileSection) => fileSection.id === fileId);
+    if (fileInputRefs.current[index]) {
+      fileInputRefs.current[index]!.value = ''; // إعادة تعيين قيمة الـ input
+    }
   };
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
