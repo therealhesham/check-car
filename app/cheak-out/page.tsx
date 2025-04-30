@@ -702,7 +702,7 @@ import { FaCheckCircle } from 'react-icons/fa';
 
 interface FileSection {
   id: number;
-  base64Data: string | string[] | null;
+  imageUrls: string | string[] | null; // تغيير base64Data إلى imageUrls لتخزين روابط ImgBB
   title: string;
   multiple: boolean;
   previewUrls: string[];
@@ -763,13 +763,13 @@ export default function UploadPage() {
 
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     id: Date.now() + Math.random(),
-    base64Data: null,
+    imageUrls: null,
     title: title,
     multiple: index === fieldTitles.length - 1,
     previewUrls: [],
   }));
 
-  const [files, setFiles] = useState<FileSection[]>(initialFiles);
+  const [files, setFiles] = useState<FieldSection[]>(initialFiles);
   const [car, setCar] = useState<string>('');
   const [carSearch, setCarSearch] = useState<string>('');
   const [showCarList, setShowCarList] = useState<boolean>(false);
@@ -850,7 +850,7 @@ export default function UploadPage() {
     if (isSuccess) {
       const timer = setTimeout(() => {
         setIsSuccess(false);
-      }, 3000); // إغلاق الموديل بعد 3 ثوانٍ
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [isSuccess]);
@@ -934,95 +934,36 @@ export default function UploadPage() {
     plateItem.toLowerCase().includes(plateSearch.toLowerCase())
   );
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        if (result.startsWith('data:image/')) {
-          resolve(result);
-        } else {
-          reject(new Error('فشل تحويل الصورة إلى Base64: تنسيق غير صالح'));
-        }
-      };
-      reader.onerror = (error) => reject(new Error(`خطأ في قراءة الملف: ${error}`));
-    });
-  };
-
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  // دالة لرفع الصورة إلى ImgBB
+  const uploadImageToImgBB = async (file: File): Promise<string> => {
+    try {
+      if (!file.type.startsWith('image/')) {
+        throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
+      }
       if (file.size > 32 * 1024 * 1024) {
-        reject(new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت)'));
-        return;
+        throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
 
-      let quality = 0.75;
-      let maxWidth = 1200;
-      let maxHeight = 1200;
+      const formData = new FormData();
+      formData.append('image', file);
 
-      if (file.size > 5 * 1024 * 1024) {
-        quality = 0.6;
-        maxWidth = 1000;
-        maxHeight = 1000;
-      } else if (file.size > 2 * 1024 * 1024) {
-        quality = 0.65;
-        maxWidth = 1200;
-        maxHeight = 1200;
+      console.log(`Uploading ${file.name} to ImgBB...`);
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${process.env.NEXT_PUBLIC_IMGBB_API_KEY}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error?.message || 'فشل رفع الصورة إلى ImgBB.');
       }
 
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
-            }
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const base64 = canvas.toDataURL('image/jpeg', quality);
-            if (base64.startsWith('data:image/')) {
-              console.log(
-                `Compressed image for ${file.name}: ${(file.size / (1024 * 1024)).toFixed(2)}MB to approximately ${(
-                  (base64.length * 0.75) /
-                  (1024 * 1024)
-                ).toFixed(2)}MB`
-              );
-              resolve(base64);
-            } else {
-              reject(new Error('فشل إنشاء Base64: تنسيق غير صالح'));
-            }
-          } else {
-            console.warn('Canvas context not available, falling back to fileToBase64');
-            fileToBase64(file).then(resolve).catch(reject);
-          }
-        };
-        img.onerror = () => reject(new Error('فشل تحميل الصورة'));
-      };
-      reader.onerror = () => {
-        console.warn('FileReader error, falling back to fileToBase64');
-        fileToBase64(file).then(resolve).catch(reject);
-      };
-    });
+      console.log(`ImgBB URL for ${file.name}: ${result.data.url}`);
+      return result.data.url;
+    } catch (error: any) {
+      console.error('Error uploading to ImgBB:', error);
+      throw new Error(`فشل رفع الصورة: ${error.message}`);
+    }
   };
 
   const handleFileChange = async (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1030,22 +971,20 @@ export default function UploadPage() {
 
     const file = e.target.files[0];
     try {
-      console.log('جاري معالجة الصورة...');
-      const base64Data = await compressImage(file);
-      console.log(`Base64 generated for ${file.name}: ${base64Data.slice(0, 50)}...`);
+      const imageUrl = await uploadImageToImgBB(file);
       const updatedFiles = files.map((fileSection) =>
         fileSection.id === id
           ? {
               ...fileSection,
-              base64Data: base64Data,
-              previewUrls: [base64Data],
+              imageUrls: imageUrl,
+              previewUrls: [imageUrl],
             }
           : fileSection
       );
       setFiles(updatedFiles);
     } catch (error: any) {
-      console.error('Error converting file to base64:', error);
-      setUploadMessage(`حدث خطأ أثناء معالجة الصورة: ${error.message}`);
+      console.error('Error uploading file:', error);
+      setUploadMessage(`حدث خطأ أثناء رفع الصورة: ${error.message}`);
       setShowToast(true);
     }
   };
@@ -1055,26 +994,22 @@ export default function UploadPage() {
 
     const selectedFiles = Array.from(e.target.files);
     try {
-      console.log('جاري معالجة الصور...');
-      const base64Promises = selectedFiles.map((file) => compressImage(file));
-      const base64Results = await Promise.all(base64Promises);
-      base64Results.forEach((base64, i) => {
-        console.log(`Base64 generated for ${selectedFiles[i].name}: ${base64.slice(0, 50)}...`);
-      });
+      const uploadPromises = selectedFiles.map((file) => uploadImageToImgBB(file));
+      const imageUrls = await Promise.all(uploadPromises);
       const currentFileSection = files.find((section) => section.id === id);
       const updatedFiles = files.map((fileSection) =>
         fileSection.id === id
           ? {
               ...fileSection,
-              base64Data: base64Results,
-              previewUrls: [...(currentFileSection?.previewUrls || []), ...base64Results],
+              imageUrls: imageUrls,
+              previewUrls: [...(currentFileSection?.previewUrls || []), ...imageUrls],
             }
           : fileSection
       );
       setFiles(updatedFiles);
     } catch (error: any) {
-      console.error('Error converting files to base64:', error);
-      setUploadMessage(`حدث خطأ أثناء معالجة الصور: ${error.message}`);
+      console.error('Error uploading files:', error);
+      setUploadMessage(`حدث خطأ أثناء رفع الصور: ${error.message}`);
       setShowToast(true);
     }
   };
@@ -1084,17 +1019,17 @@ export default function UploadPage() {
       if (fileSection.id === fileId) {
         const updatedPreviews = [...fileSection.previewUrls];
         updatedPreviews.splice(previewIndex, 1);
-        let updatedBase64Data = fileSection.base64Data;
-        if (Array.isArray(updatedBase64Data)) {
-          updatedBase64Data = [...updatedBase64Data];
-          updatedBase64Data.splice(previewIndex, 1);
+        let updatedImageUrls = fileSection.imageUrls;
+        if (Array.isArray(updatedImageUrls)) {
+          updatedImageUrls = [...updatedImageUrls];
+          updatedImageUrls.splice(previewIndex, 1);
         } else if (previewIndex === 0) {
-          updatedBase64Data = null;
+          updatedImageUrls = null;
         }
         return {
           ...fileSection,
           previewUrls: updatedPreviews,
-          base64Data: updatedBase64Data,
+          imageUrls: updatedImageUrls,
         };
       }
       return fileSection;
@@ -1111,6 +1046,9 @@ export default function UploadPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // تنظيف الحقول النصية
+    const cleanInput = (input: string) => input.replace(/[^\w\s]/gi, '').trim();
+
     // التحقق من ملء جميع الحقول النصية المطلوبة
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
@@ -1118,7 +1056,13 @@ export default function UploadPage() {
       return;
     }
 
-    // التحقق من أن رقم العقد رقم صالح
+    // التحقق من أن رقم العقد يحتوي على أرقام فقط
+    if (!/^\d+$/.test(contract.trim())) {
+      setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
+      setShowToast(true);
+      return;
+    }
+
     const contractNum = parseFloat(contract);
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
@@ -1136,9 +1080,9 @@ export default function UploadPage() {
     // التحقق من وجود أي صورة مطلوبة
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'صور اخرى');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
-      if (fileSection.base64Data === null) return false;
-      if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length > 0;
-      return fileSection.base64Data !== '';
+      if (fileSection.imageUrls === null) return false;
+      if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length > 0;
+      return fileSection.imageUrls !== '';
     });
     if (!hasAnyRequiredImage) {
       setUploadMessage('يرجى رفع الصور المطلوبة.');
@@ -1148,9 +1092,9 @@ export default function UploadPage() {
 
     // التحقق من كل صورة مطلوبة
     const missingImages = requiredImages.filter((fileSection) => {
-      if (fileSection.base64Data === null) return true;
-      if (Array.isArray(fileSection.base64Data)) return fileSection.base64Data.length === 0;
-      return fileSection.base64Data === '';
+      if (fileSection.imageUrls === null) return true;
+      if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length === 0;
+      return fileSection.imageUrls === '';
     });
     if (missingImages.length > 0) {
       setUploadMessage(
@@ -1176,20 +1120,20 @@ export default function UploadPage() {
         fields: {} as Record<string, string | string[]>,
       };
 
-      airtableData.fields['السيارة'] = car.trim();
-      airtableData.fields['اللوحة'] = plate.trim();
+      airtableData.fields['السيارة'] = cleanInput(car);
+      airtableData.fields['اللوحة'] = cleanInput(plate);
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
-      airtableData.fields['الموظف'] = user.name; // إضافة اسم الموظف
-      airtableData.fields['الفرع'] = user.branch; // إضافة الفرع
+      airtableData.fields['الموظف'] = user.name;
+      airtableData.fields['الفرع'] = user.branch;
 
       files.forEach((fileSection) => {
-        if (fileSection.base64Data) {
-          airtableData.fields[fileSection.title] = fileSection.base64Data;
+        if (fileSection.imageUrls) {
+          airtableData.fields[fileSection.title] = fileSection.imageUrls;
         }
       });
 
-      console.log('Data to be sent to Airtable:', JSON.stringify(airtableData, null, 2));
+      console.log('Data to be sent to API:', JSON.stringify(airtableData, null, 2));
 
       setUploadProgress(30);
 
@@ -1210,6 +1154,8 @@ export default function UploadPage() {
         setUploadProgress(90);
 
         const result = await response.json();
+        console.log('API response:', result);
+
         if (result.success) {
           setUploadProgress(100);
           setIsSuccess(true);
@@ -1218,7 +1164,7 @@ export default function UploadPage() {
           setFiles(
             fieldTitles.map((title, index) => ({
               id: Date.now() + Math.random(),
-              base64Data: null,
+              imageUrls: null,
               title: title,
               multiple: index === fieldTitles.length - 1,
               previewUrls: [],
