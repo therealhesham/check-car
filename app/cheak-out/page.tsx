@@ -769,7 +769,7 @@ export default function UploadPage() {
     previewUrls: [],
   }));
 
-  const [files, setFiles] = useState<FieldSection[]>(initialFiles);
+  const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [car, setCar] = useState<string>('');
   const [carSearch, setCarSearch] = useState<string>('');
   const [showCarList, setShowCarList] = useState<boolean>(false);
