@@ -705,8 +705,11 @@ const generateUniqueId = () => {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
+// دالة لإضافة تأخير بين طلبات الرفع
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 interface FileSection {
-  id: string; // تغيير إلى string لضمان التفرد
+  id: string;
   imageUrls: string | string[] | null;
   title: string;
   multiple: boolean;
@@ -799,6 +802,7 @@ export default function UploadPage() {
   const carInputRef = useRef<HTMLDivElement>(null);
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const uploadQueue = useRef<Promise<void>>(Promise.resolve()); // لإدارة تسلسل الرفع
 
   // التحقق من تسجيل الدخول وجلب بيانات الموظف
   useEffect(() => {
@@ -969,7 +973,7 @@ export default function UploadPage() {
       return result.data.url;
     } catch (error: any) {
       console.error('Error uploading to ImgBB:', error);
-      throw new Error(`فشل رفع الصورة: ${error.message}`);
+      throw error;
     }
   };
 
@@ -995,40 +999,54 @@ export default function UploadPage() {
       )
     );
 
-    try {
-      const imageUrl = await uploadImageToImgBB(file);
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                imageUrls: imageUrl,
-                previewUrls: [imageUrl],
-                isUploading: false,
-              }
-            : fileSection
-        )
-      );
-      URL.revokeObjectURL(localPreviewUrl);
-      console.log(`Successfully updated section ID: ${id} with ImgBB URL: ${imageUrl}`);
-    } catch (error: any) {
-      console.error(`Error uploading file for section ID: ${id}:`, error);
-      setUploadMessage(`حدث خطأ أثناء رفع الصورة: ${error.message}`);
-      setShowToast(true);
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                imageUrls: null,
-                previewUrls: [],
-                isUploading: false,
-              }
-            : fileSection
-        )
-      );
-      URL.revokeObjectURL(localPreviewUrl);
-    }
+    // إضافة الرفع إلى قائمة الانتظار مع تأخير
+    uploadQueue.current = uploadQueue.current.then(async () => {
+      try {
+        await delay(1500); // تأخير 1.5 ثانية بين الطلبات
+        const imageUrl = await uploadImageToImgBB(file);
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  imageUrls: imageUrl,
+                  previewUrls: [imageUrl],
+                  isUploading: false,
+                }
+              : fileSection
+          )
+        );
+        URL.revokeObjectURL(localPreviewUrl);
+        console.log(`Successfully updated section ID: ${id} with ImgBB URL: ${imageUrl}`);
+      } catch (error: any) {
+        console.error(`Error uploading file for section ID: ${id}:`, error);
+        let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
+        if (error.message.includes('Rate limit reached')) {
+          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا بعد ساعة.';
+        }
+        setUploadMessage(errorMessage);
+        setShowToast(true);
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  imageUrls: null,
+                  previewUrls: [],
+                  isUploading: false,
+                }
+              : fileSection
+          )
+        );
+        URL.revokeObjectURL(localPreviewUrl);
+        // إعادة تعيين إدخال الملف
+        const index = files.findIndex((fileSection) => fileSection.id === id);
+        if (fileInputRefs.current[index]) {
+          fileInputRefs.current[index]!.value = '';
+          console.log(`Reset input after upload failure for section ID: ${id}`);
+        }
+      }
+    });
   };
 
   const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1051,41 +1069,58 @@ export default function UploadPage() {
       )
     );
 
-    try {
-      const uploadPromises = selectedFiles.map((file) => uploadImageToImgBB(file));
-      const imageUrls = await Promise.all(uploadPromises);
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                imageUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
-                previewUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
-                isUploading: false,
-              }
-            : fileSection
-        )
-      );
-      localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-      console.log(`Successfully updated section ID: ${id} with ImgBB URLs: ${imageUrls.join(', ')}`);
-    } catch (error: any) {
-      console.error(`Error uploading files for section ID: ${id}:`, error);
-      setUploadMessage(`حدث خطأ أثناء رفع الصور: ${error.message}`);
-      setShowToast(true);
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                imageUrls: null,
-                previewUrls: [],
-                isUploading: false,
-              }
-            : fileSection
-        )
-      );
-      localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-    }
+    // إضافة الرفع إلى قائمة الانتظار مع تأخير لكل صورة
+    uploadQueue.current = uploadQueue.current.then(async () => {
+      try {
+        const imageUrls: string[] = [];
+        for (const file of selectedFiles) {
+          await delay(1500); // تأخير 1.5 ثانية بين كل صورة
+          const imageUrl = await uploadImageToImgBB(file);
+          imageUrls.push(imageUrl);
+        }
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  imageUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
+                  previewUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
+                  isUploading: false,
+                }
+              : fileSection
+          )
+        );
+        localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+        console.log(`Successfully updated section ID: ${id} with ImgBB URLs: ${imageUrls.join(', ')}`);
+      } catch (error: any) {
+        console.error(`Error uploading files for section ID: ${id}:`, error);
+        let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
+        if (error.message.includes('Rate limit reached')) {
+          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا بعد ساعة.';
+        }
+        setUploadMessage(errorMessage);
+        setShowToast(true);
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  imageUrls: null,
+                  previewUrls: [],
+                  isUploading: false,
+                }
+              : fileSection
+          )
+        );
+        localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+        // إعادة تعيين إدخال الملف
+        const index = files.findIndex((fileSection) => fileSection.id === id);
+        if (fileInputRefs.current[index]) {
+          fileInputRefs.current[index]!.value = '';
+          console.log(`Reset input after upload failure for section ID: ${id}`);
+        }
+      }
+    });
   };
 
   const removePreviewImage = (fileId: string, previewIndex: number) => {
