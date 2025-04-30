@@ -246,6 +246,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
+import axios from 'axios';
 
 // Define interface for the request data
 interface AirtableRequestData {
@@ -263,7 +264,7 @@ interface AirtableRecord {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb', // تقليل الحد لأننا لا نستخدم Base64
+      sizeLimit: '50mb', // الحد الكبير لدعم ملفات الصور
     },
   },
 };
@@ -273,6 +274,37 @@ const airtableApiKey = 'patH4avQdGYSC0oz4.b2bc135c01c9c5c44cfa2d8595850d75189ea9
 const airtableBaseId = 'app7Hc09WF8xul5T9';
 const airtableTableName = 'cheakcar';
 const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+
+// دالة لرفع الصورة إلى ImgBB
+async function uploadImageToImgBB(image: string): Promise<string> {
+  try {
+    // التحقق من أن الصورة تبدأ بـ data:image/ (في حالة إرسال Base64)
+    if (image.startsWith('data:image/')) {
+      const base64Data = image.split(',')[1]; // إزالة "data:image/png;base64,"
+      const formData = new FormData();
+      formData.append('image', base64Data);
+
+      console.log('Uploading Base64 image to ImgBB...');
+      const response = await axios.post('https://api.imgbb.com/1/upload', formData, {
+        params: {
+          key: '960012ec48fff9b7d8bf3fe19f460320', // مفتاح ImgBB
+        },
+      });
+
+      console.log('ImgBB response:', response.data);
+      return response.data.data.url;
+    } else if (image.startsWith('https://')) {
+      // إذا كانت الصورة رابطًا بالفعل، نعيدها كما هي
+      console.log('Image is already a URL:', image);
+      return image;
+    } else {
+      throw new Error('تنسيق الصورة غير صالح. يجب أن تكون Base64 أو رابط URL.');
+    }
+  } catch (error: any) {
+    console.error('Error uploading image to ImgBB:', error);
+    throw new Error(`فشل في رفع الصورة إلى ImgBB: ${error.message}`);
+  }
+}
 
 // Function to verify Airtable connection and table access
 async function verifyTableAccess(): Promise<boolean> {
@@ -346,17 +378,18 @@ async function uploadDirectly(data: Record<string, string | string[]>): Promise<
         }
         fields[key] = contractNum; // Store as number for Airtable
       } else if (key === 'صور اخرى' && Array.isArray(value)) {
-        // التحقق من أن جميع الروابط صالحة
-        if (!value.every((url) => url.startsWith('https://i.ibb.co'))) {
-          throw new Error('جميع الروابط في حقل صور اخرى يجب أن تكون روابط ImgBB صالحة');
-        }
-        fields[key] = value.map((url) => ({ url, filename: `${key}_${Date.now()}.jpg` }));
+        // رفع الصور المتعددة إلى ImgBB وتخزين الروابط كـ Attachments
+        const imageUrls = await Promise.all(
+          value.map(async (img) => {
+            const url = await uploadImageToImgBB(img);
+            return { url, filename: `${key}_${Date.now()}.jpg` };
+          })
+        );
+        fields[key] = imageUrls;
       } else if (typeof value === 'string' && fieldTitles.includes(key)) {
-        // معالجة الحقول التي تحتوي على رابط صورة واحد
-        if (!value.startsWith('https://i.ibb.co')) {
-          throw new Error(`رابط الصورة في حقل ${key} يجب أن يكون رابط ImgBB صالح`);
-        }
-        fields[key] = [{ url: value, filename: `${key}_${Date.now()}.jpg` }];
+        // معالجة الحقول التي تحتوي على صورة واحدة
+        const imageUrl = await uploadImageToImgBB(value);
+        fields[key] = [{ url: imageUrl, filename: `${key}_${Date.now()}.jpg` }];
       } else if (key === 'الموظف' || key === 'الفرع') {
         // التحقق من أن الحقول النصية ليست فارغة
         if (!value || (typeof value === 'string' && value.trim() === '')) {
@@ -398,7 +431,7 @@ export async function POST(req: NextRequest) {
 
     // Check if at least one image is provided
     const hasImage = Object.entries(data.fields).some(([key, value]) =>
-      fieldTitles.includes(key) && (typeof value === 'string' ? value.startsWith('https://i.ibb.co') : Array.isArray(value))
+      fieldTitles.includes(key) && (typeof value === 'string' || Array.isArray(value))
     );
     if (!hasImage) {
       return NextResponse.json(
