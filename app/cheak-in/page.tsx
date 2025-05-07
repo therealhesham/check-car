@@ -1049,13 +1049,19 @@ import { carList } from '@/lib/car';
 import { licenseList } from '@/lib/License';
 import { FaSearch, FaCheckCircle } from 'react-icons/fa';
 
+// دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
+const sanitizeTitle = (title: string, index: number) => {
+  const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
+  return `${cleanTitle}-${index}`;
+};
+
 interface FileSection {
-  id: number;
-  imageUrls: string | string[] | null; // تغيير من base64Data إلى imageUrls
+  id: string; // تغيير من number إلى string
+  imageUrls: string | string[] | null;
   title: string;
   multiple: boolean;
   previewUrls: string[];
-  isUploading: boolean; // إضافة حالة الرفع
+  isUploading: boolean;
 }
 
 interface AirtableRecord {
@@ -1090,29 +1096,29 @@ interface User {
 
 export default function CheckInPage() {
   const fieldTitles = [
-    'العداد',
-    'الابواب اليمين مع توضيح السمكة',
-    'الرفرف الامامي يمين',
-    'الرفرف الخلفي يمين',
     'الصدام الخلفي مع الانوار',
     'سطح الشنطة مع الزجاج الخلفي',
+    'محتويات الشنطة مع الاستبنة',
     'التندة',
-    'الرفرف الخلفي يسار',
-    'الابواب اليسار مع توضيح السمكة',
-    'الرفرف الامامي يسار',
+    'الرفرف الخلفي يمين',
+    'الابواب اليمين مع توضيح السمكة',
+    'الرفرف الامامي يمين',
     'الصدام الامامي مع الشنب',
     'الكبوت مع الشبك',
     'الزجاج الامامي',
-    'محتويات الشنطة مع الاستبنة',
-    'طفاية الحريق',
-    'المقعد الامامي يمين',
+    'الرفرف الامامي يسار',
+    'الابواب اليسار مع توضيح السمكة',
+    'الرفرف الخلفي يسار',
     'المقعد الامامي يسار',
+    'المقعد الامامي يمين',
     'المقعد الخلفي مع خلفية المقاعد الامامية',
+    'طفاية الحريق',
+    'العداد',
     'صور اخرى',
   ];
 
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
-    id: Date.now() + index + Math.random(),
+    id: `file-section-${sanitizeTitle(title, index)}`,
     imageUrls: null,
     title: title,
     multiple: index === fieldTitles.length - 1,
@@ -1145,7 +1151,7 @@ export default function CheckInPage() {
   const carInputRef = useRef<HTMLDivElement>(null);
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const uploadQueue = useRef<Promise<void>>(Promise.resolve()); // إضافة قائمة انتظار للرفع
+  const uploadQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -1195,6 +1201,15 @@ export default function CheckInPage() {
   }, [showToast]);
 
   useEffect(() => {
+    if (isSuccess) {
+      const timer = setTimeout(() => {
+        setIsSuccess(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess]);
+
+  useEffect(() => {
     if (contract.trim()) {
       fetchPreviousRecord();
     } else {
@@ -1210,15 +1225,6 @@ export default function CheckInPage() {
       e.preventDefault();
     }
   };
-  
-  useEffect(() => {
-    if (isSuccess) {
-      const timer = setTimeout(() => {
-        setIsSuccess(false);
-      }, 3000); // إخفاء الموديل بعد 3 ثوانٍ
-      return () => clearTimeout(timer); // تنظيف المؤقت عند إلغاء التأثير
-    }
-  }, [isSuccess]);
 
   const fetchPreviousRecord = async () => {
     if (!contract.trim()) {
@@ -1227,17 +1233,16 @@ export default function CheckInPage() {
       setShowToast(true);
       return;
     }
-  
+
     setIsSearching(true);
     setUploadMessage('');
-  
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
-  
+
     try {
-      // التحقق من وجود سجل دخول سابق
       const entryResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=دخول`,
         {
@@ -1248,15 +1253,14 @@ export default function CheckInPage() {
           signal: abortControllerRef.current.signal,
         }
       );
-  
+
       if (!entryResponse.ok) {
         const errorData = await entryResponse.json().catch(() => ({}));
         throw new Error(errorData.message || `فشل في التحقق من سجل الدخول (حالة: ${entryResponse.status})`);
       }
-  
+
       const entryData: ApiResponse = await entryResponse.json();
       if (entryData.success && entryData.results.length > 0) {
-        // إذا تم العثور على سجل دخول سابق
         setPreviousRecord(null);
         setUploadMessage('تم تسجيل عملية دخول لهذا العقد من قبل.');
         setShowToast(true);
@@ -1264,10 +1268,9 @@ export default function CheckInPage() {
         setCarSearch('');
         setPlate('');
         setPlateSearch('');
-        return; // إيقاف العملية
+        return;
       }
-  
-      // إذا لم يكن هناك سجل دخول، جلب سجل الخروج
+
       const exitResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
         {
@@ -1278,15 +1281,15 @@ export default function CheckInPage() {
           signal: abortControllerRef.current.signal,
         }
       );
-  
+
       if (!exitResponse.ok) {
         const errorData = await exitResponse.json().catch(() => ({}));
         throw new Error(errorData.message || `فشل في جلب السجل السابق (حالة: ${exitResponse.status})`);
       }
-  
+
       const exitData: ApiResponse = await exitResponse.json();
       if (exitData.success && exitData.results.length > 0) {
-        const exitRecord = exitData.results[0]; // نأخذ أول سجل خروج
+        const exitRecord = exitData.results[0];
         setPreviousRecord(exitRecord);
         if (!car && exitRecord.fields['السيارة']) {
           setCar(exitRecord.fields['السيارة']);
@@ -1301,7 +1304,7 @@ export default function CheckInPage() {
       } else {
         setPreviousRecord(null);
         setUploadMessage('لا يوجد سجل خروج لهذا العقد.');
-        setShowToast(true); // إعادة تفعيل الـ toast
+        setShowToast(true);
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -1366,7 +1369,7 @@ export default function CheckInPage() {
     }
   };
 
-  const handleFileChange = async (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
     const file = e.target.files[0];
@@ -1434,7 +1437,7 @@ export default function CheckInPage() {
     });
   };
 
-  const handleMultipleFileChange = async (id: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
     const selectedFiles = Array.from(e.target.files);
@@ -1505,7 +1508,7 @@ export default function CheckInPage() {
     });
   };
 
-  const removePreviewImage = (fileId: number, previewIndex: number, e: React.MouseEvent) => {
+  const removePreviewImage = (fileId: string, previewIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
     console.log(`Removing image at index ${previewIndex} for section ID: ${fileId}, Title: ${files.find((f) => f.id === fileId)?.title}`);
     setFiles((prevFiles) =>
@@ -1596,7 +1599,7 @@ export default function CheckInPage() {
 
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
     if (isAnyUploading) {
-      setUploadMessage('يرجى الانتظار حتى يك صحيح جميع الصور.');
+      setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
       setShowToast(true);
       return;
     }
@@ -1653,7 +1656,7 @@ export default function CheckInPage() {
           setUploadMessage('تم بنجاح رفع التشييك');
           setFiles(
             fieldTitles.map((title, index) => ({
-              id: Date.now() + index + Math.random(),
+              id: `file-section-${sanitizeTitle(title, index)}`,
               imageUrls: null,
               title: title,
               multiple: index === fieldTitles.length - 1,
@@ -1868,13 +1871,13 @@ export default function CheckInPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
               {files.map((fileSection, index) => (
-                <div key={fileSection.id} className="mb-3 border-b border-gray-200 dark:border-gray-600 pb-3">
-                  <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-2">
+                <div key={fileSection.id} className="mb-3">
+                  <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
                     {fileSection.title} {fileSection.title === 'صور اخرى' ? '' : '*'}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
                         الصورة الجديدة:
@@ -1909,7 +1912,7 @@ export default function CheckInPage() {
                                 </div>
                               ))}
                               <label
-                                htmlFor={`file-input-${index}`}
+                                htmlFor={`file-input-${fileSection.id}`}
                                 className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
                               >
                                 <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
@@ -1939,7 +1942,7 @@ export default function CheckInPage() {
                         </div>
                       ) : (
                         <label
-                          htmlFor={`file-input-${index}`}
+                          htmlFor={`file-input-${fileSection.id}`}
                           className="cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32"
                         >
                           <svg
@@ -1968,7 +1971,7 @@ export default function CheckInPage() {
                         </label>
                       )}
                       <input
-                        id={`file-input-${index}`}
+                        id={`file-input-${fileSection.id}`}
                         ref={setInputRef(index)}
                         type="file"
                         accept="image/*"
