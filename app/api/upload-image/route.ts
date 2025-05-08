@@ -3,10 +3,10 @@ import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 
 // إعداد بيانات DigitalOcean Spaces
-const DO_ACCESS_KEY = 'DO80192ACFDRB9F6LGW8'; // استبدل بمفتاح الوصول الخاص بك
-const DO_SECRET_KEY = 'd4DkpWlzchg7gBFxIoBjqFk0R2WXZZOY4lzV/ZOO7yM'; // استبدل بمفتاح السر الخاص بك
-const DO_SPACE_NAME = 'uploadcarimages'; // اسم الـ Space
-const DO_REGION = 'sgp1'; // منطقة الـ Space
+const DO_ACCESS_KEY = process.env.DO_ACCESS_KEY || 'DO80192ACFDRB9F6LGW8'; // استخدام متغيرات البيئة
+const DO_SECRET_KEY = process.env.DO_SECRET_KEY || 'd4DkpWlzchg7gBFxIoBjqFk0R2WXZZOY4lzV/ZOO7yM'; // استخدام متغيرات البيئة
+const DO_SPACE_NAME = 'uploadcarimages';
+const DO_REGION = 'sgp1';
 const DO_ENDPOINT = `https://uploadcarimages.sgp1.digitaloceanspaces.com`;
 
 // إعداد AWS SDK لـ DigitalOcean Spaces
@@ -21,7 +21,7 @@ const s3 = new AWS.S3({
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '50mb', // دعم ملفات تصل إلى 50 ميغابايت
+      sizeLimit: '100mb', // دعم ملفات تصل إلى 100 ميغابايت
     },
   },
 };
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (file.size > 32 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       return NextResponse.json(
-        { success: false, error: 'حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).' },
+        { success: false, error: 'حجم الصورة كبير جدًا (الحد الأقصى 100 ميغابايت).' },
         { status: 400 }
       );
     }
