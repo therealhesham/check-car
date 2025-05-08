@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       url: uploadResult.Location,
     });
   } catch (error: any) {
-    console.error('Error uploading to DigitalOcean Spaces:', error);
+    console.log('Error uploading to DigitalOcean Spaces:', error);
     return NextResponse.json(
       {
         success: false,
