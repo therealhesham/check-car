@@ -1,3 +1,8 @@
+'use client';
+
+import AWS from 'aws-sdk';
+import { v4 as uuidv4 } from 'uuid';
+
 // 'use client';
 
 // import Navbar from '@/public/components/navbar';
@@ -910,7 +915,6 @@
 // }
 
 
-'use client';
 
 import Navbar from '@/public/components/navbar';
 import { useState, useRef, useEffect, RefCallback } from 'react';
@@ -1249,7 +1253,43 @@ export default function UploadPage() {
     return matches;
   });
 
+
+  const DO_ACCESS_KEY = process.env.DO_ACCESS_KEY || 'DO80192ACFDRB9F6LGW8'; // استخدام متغيرات البيئة
+  const DO_SECRET_KEY = process.env.DO_SECRET_KEY || 'd4DkpWlzchg7gBFxIoBjqFk0R2WXZZOY4lzV/ZOO7yM'; // استخدام متغيرات البيئة
+  const DO_SPACE_NAME = 'uploadcarimages';
+  const DO_REGION = 'sgp1';
+  const DO_ENDPOINT = `https://uploadcarimages.sgp1.digitaloceanspaces.com`;
+  
+  // إعداد AWS SDK لـ DigitalOcean Spaces
+  const s3 = new AWS.S3({
+    accessKeyId: DO_ACCESS_KEY,
+    secretAccessKey: DO_SECRET_KEY,
+    endpoint: DO_ENDPOINT,
+    s3ForcePathStyle: true,
+    signatureVersion: 'v4',
+  });
+  
+   const config = {
+    api: {
+      bodyParser: {
+        sizeLimit: '100mb', // دعم ملفات تصل إلى 100 ميغابايت
+      },
+    },
+  };
+  
   const uploadImageToBackend = async (file: File): Promise<string> => {
+    const fileName = `${uuidv4()}-${file.name}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const params = {
+      Bucket: DO_SPACE_NAME,
+      Key: fileName,
+      Body: buffer,
+      ContentType: file.type,
+      ACL: 'public-read', // جعل الصورة عامة للوصول إليها
+    };
+
+
     try {
       if (!file.type.startsWith('image/')) {
         throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
@@ -1262,18 +1302,16 @@ export default function UploadPage() {
       formData.append('image', file);
 
       console.log(`Uploading ${file.name} to backend...`);
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData,
-      });
+      // const response = await fetch('/api/upload-image', {
+      //   method: 'POST',
+      //   body: formData,
+      // });
 
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || 'فشل رفع الصورة إلى الخلفية.');
-      }
+      // const result = await response.json();
 
-      console.log(`Backend URL for ${file.name}: ${result.url}`);
-      return result.url;
+const result =  await    s3.upload(params).promise();
+      return result.Location; // URL للصورة المرفوعة
+   
     } catch (error: any) {
       console.error('Error uploading to backend:', error);
       throw error;
