@@ -209,13 +209,11 @@ export default function UploadPage() {
             name: record.fields.Name,
           }));
           setCars(fetchedCars);
-          console.log('Fetched cars:', fetchedCars);
         } else {
           setUploadMessage('فشل في جلب قائمة السيارات.');
           setShowToast(true);
         }
       } catch (error: any) {
-        console.error('Error fetching cars:', error);
         setUploadMessage('حدث خطأ أثناء جلب قائمة السيارات.');
         setShowToast(true);
       } finally {
@@ -239,13 +237,11 @@ export default function UploadPage() {
             name: record.fields.Name,
           }));
           setPlates(fetchedPlates);
-          console.log('Fetched plates:', fetchedPlates);
         } else {
           setUploadMessage('فشل في جلب قائمة اللوحات.');
           setShowToast(true);
         }
       } catch (error: any) {
-        console.error('Error fetching plates:', error);
         setUploadMessage('حدث خطأ أثناء جلب قائمة اللوحات.');
         setShowToast(true);
       } finally {
@@ -310,7 +306,6 @@ export default function UploadPage() {
       if (err.name === 'AbortError') {
         return;
       }
-      console.error('Error fetching previous record:', err);
       setUploadMessage(err.message || 'حدث خطأ أثناء جلب السجل السابق.');
       setShowToast(true);
       setHasExitRecord(false);
@@ -363,13 +358,10 @@ export default function UploadPage() {
     };
 
     try {
-      console.log(`Compressing image: ${file.name}, Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
       const compressedFile = await imageCompression(file, options);
-      console.log(`Compressed image: ${compressedFile.name}, Size: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
       // إنشاء ملف جديد باسم فريد ونوع JPEG
       return new File([compressedFile], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
     } catch (error) {
-      console.error('Error compressing image:', error);
       throw new Error('فشل في ضغط الصورة.');
     }
   };
@@ -394,12 +386,9 @@ export default function UploadPage() {
         throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
 
-      console.log(`Uploading ${fileName} to DigitalOcean Spaces...`);
       const uploadResult = await s3.upload(params).promise();
-      console.log(`Uploaded ${fileName} to ${uploadResult.Location}`);
       return uploadResult.Location;
     } catch (error: any) {
-      console.error('Error uploading to DigitalOcean Spaces:', error);
       throw error;
     }
   };
@@ -410,7 +399,6 @@ export default function UploadPage() {
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
 
-    console.log(`Handling file change for section ID: ${id}, Title: ${files.find((f) => f.id === id)?.title}`);
 
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
@@ -443,9 +431,7 @@ export default function UploadPage() {
           )
         );
         URL.revokeObjectURL(localPreviewUrl);
-        console.log(`Successfully updated section ID: ${id} with backend URL: ${imageUrl}`);
       } catch (error: any) {
-        console.error(`Error uploading file for section ID: ${id}:`, error);
         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
           errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
@@ -470,7 +456,6 @@ export default function UploadPage() {
         const index = files.findIndex((fileSection) => fileSection.id === id);
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
-          console.log(`Reset input after upload failure for section ID: ${id}`);
         }
       }
     });
@@ -482,7 +467,6 @@ export default function UploadPage() {
     const selectedFiles = Array.from(e.target.files);
     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
 
-    console.log(`Handling multiple file change for section ID: ${id}, Title: ${files.find((f) => f.id === id)?.title}`);
 
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
@@ -518,9 +502,7 @@ export default function UploadPage() {
           )
         );
         localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        console.log(`Successfully updated section ID: ${id} with backend URLs: ${imageUrls.join(', ')}`);
       } catch (error: any) {
-        console.error(`Error uploading multiple files for section ID: ${id}:`, error);
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
@@ -537,7 +519,6 @@ export default function UploadPage() {
   };
 
   const removePreviewImage = (fileId: string, previewIndex: number) => {
-    console.log(`Removing image at index ${previewIndex} for section ID: ${fileId}, Title: ${files.find((f) => f.id === fileId)?.title}`);
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
@@ -564,28 +545,23 @@ export default function UploadPage() {
     const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
-      console.log(`Reset input for section ID: ${fileId}`);
     }
   };
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
     return (element: HTMLInputElement | null) => {
       fileInputRefs.current[index] = element;
-      if (element) {
-        console.log(`Input ref set for index: ${index}, Title: ${files[index]?.title}`);
-      }
+      
     };
   };
 
   const handleCarSelect = (selectedCar: string) => {
-    console.log('Selected car:', selectedCar);
     setCar(selectedCar);
     setCarSearch(selectedCar);
     setShowCarList(false);
   };
 
   const handlePlateSelect = (selectedPlate: string) => {
-    console.log('Selected plate:', selectedPlate);
     setPlate(selectedPlate);
     setPlateSearch(selectedPlate);
     setShowPlateList(false);
@@ -594,7 +570,6 @@ export default function UploadPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    console.log('Submitting form with:', { car, plate, contract });
 
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
@@ -681,7 +656,6 @@ export default function UploadPage() {
         }
       });
 
-      console.log('Data to be sent to API:', JSON.stringify(airtableData, null, 2));
 
       setUploadProgress(30);
 
@@ -702,7 +676,6 @@ export default function UploadPage() {
         setUploadProgress(90);
 
         const result = await response.json();
-        console.log('API response:', result);
 
         if (result.success) {
           setUploadProgress(100);
@@ -728,7 +701,6 @@ export default function UploadPage() {
           fileInputRefs.current.forEach((ref, index) => {
             if (ref) {
               ref.value = '';
-              console.log(`Reset input after submit for index: ${index}, Title: ${files[index]?.title}`);
             }
           });
         } else {
@@ -736,7 +708,6 @@ export default function UploadPage() {
         }
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
-        console.error('Error during upload:', fetchError);
         if (fetchError.name === 'AbortError') {
           setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
         } else {
@@ -748,7 +719,6 @@ export default function UploadPage() {
         setShowToast(true);
       }
     } catch (error: any) {
-      console.error('Error preparing upload:', error);
       setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
       setShowToast(true);
       setUploadProgress(0);
@@ -786,7 +756,6 @@ export default function UploadPage() {
                       onChange={(e) => {
                         setCarSearch(e.target.value);
                         setShowCarList(true);
-                        console.log('Car search input:', e.target.value);
                       }}
                       onFocus={() => setShowCarList(true)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -828,7 +797,6 @@ export default function UploadPage() {
                       onChange={(e) => {
                         setPlateSearch(e.target.value);
                         setShowPlateList(true);
-                        console.log('Plate search input:', e.target.value);
                       }}
                       onFocus={() => setShowPlateList(true)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
