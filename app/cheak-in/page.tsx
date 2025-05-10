@@ -513,20 +513,64 @@ const result =  await    s3.upload(params).promise();
     });
   };
 
-  const removePreviewImage = (fileId: string, previewIndex: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+ 
+  const deleteFile = (fileKey: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const params = {
+        Bucket: 'uploadcarimages',
+        Key: fileKey,
+      };
+  
+      s3.deleteObject(params, (err, data) => {
+        if (err) {
+          console.error('Error deleting:', err);
+          reject(new Error(`فشل في حذف الملف: ${fileKey}`));
+        } else {
+          console.log('File deleted successfully:', fileKey);
+          resolve();
+        }
+      });
+    });
+  };
+  const removePreviewImage = async (fileId: string, previewIndex: number) => {
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
           const updatedPreviews = [...fileSection.previewUrls];
-          updatedPreviews.splice(previewIndex, 1);
+          const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0]; // الحصول على URL المحذوف
           let updatedImageUrls = fileSection.imageUrls;
+  
+          // استخراج fileKey من deletedPreviewUrl
+          let fileKey: string | null = null;
+          if (deletedPreviewUrl) {
+            try {
+              const urlParts = deletedPreviewUrl.split('/');
+              fileKey = urlParts[urlParts.length - 1]; // اسم الملف هو الجزء الأخير من URL
+            } catch (error) {
+              console.error('Error parsing URL:', error);
+            }
+          }
+  
           if (Array.isArray(updatedImageUrls)) {
             updatedImageUrls = [...updatedImageUrls];
             updatedImageUrls.splice(previewIndex, 1);
           } else if (previewIndex === 0) {
             updatedImageUrls = null;
           }
+  
+          // حذف الصورة من السيرفر إذا كان fileKey موجودًا
+          if (fileKey) {
+            deleteFile(fileKey)
+              .then(() => {
+                setUploadMessage(`تم حذف الصورة  بنجاح من السيرفر.`);
+                setShowToast(true);
+              })
+              .catch((error) => {
+                setUploadMessage(error.message);
+                setShowToast(true);
+              });
+          }
+  
           return {
             ...fileSection,
             previewUrls: updatedPreviews,
@@ -537,12 +581,13 @@ const result =  await    s3.upload(params).promise();
         return fileSection;
       })
     );
-
+  
     const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
     }
   };
+
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
     return (element: HTMLInputElement | null) => {
