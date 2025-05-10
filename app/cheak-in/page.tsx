@@ -1413,7 +1413,6 @@ const result =  await    s3.upload(params).promise();
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
 
-    console.log(`Handling file change for section ID: ${id}, Title: ${files.find((f) => f.id === id)?.title}`);
 
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
@@ -1444,7 +1443,6 @@ const result =  await    s3.upload(params).promise();
           )
         );
         URL.revokeObjectURL(localPreviewUrl);
-        console.log(`Successfully updated section ID: ${id} with backend URL: ${imageUrl}`);
       } catch (error: any) {
         console.error(`Error uploading file for section ID: ${id}:`, error);
         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
@@ -1481,7 +1479,6 @@ const result =  await    s3.upload(params).promise();
     const selectedFiles = Array.from(e.target.files);
     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
 
-    console.log(`Handling multiple file change for section ID: ${id}, Title: ${files.find((f) => f.id === id)?.title}`);
 
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
@@ -1515,7 +1512,6 @@ const result =  await    s3.upload(params).promise();
           )
         );
         localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        console.log(`Successfully updated section ID: ${id} with backend URLs: ${imageUrls.join(', ')}`);
       } catch (error: any) {
         console.error(`Error uploading files for section ID: ${id}:`, error);
         let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
@@ -1540,7 +1536,6 @@ const result =  await    s3.upload(params).promise();
         const index = files.findIndex((fileSection) => fileSection.id === id);
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
-          console.log(`Reset input after upload failure for section ID: ${id}`);
         }
       }
     });
@@ -1548,7 +1543,6 @@ const result =  await    s3.upload(params).promise();
 
   const removePreviewImage = (fileId: string, previewIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(`Removing image at index ${previewIndex} for section ID: ${fileId}, Title: ${files.find((f) => f.id === fileId)?.title}`);
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
