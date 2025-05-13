@@ -1067,7 +1067,7 @@ interface FileSection {
   multiple: boolean;
   previewUrls: string[];
   isUploading: boolean;
-  uploadProgress: number; // Added for progress bar
+  uploadProgress: number;
 }
 
 interface User {
@@ -1325,9 +1325,9 @@ export default function UploadPage() {
       });
 
       if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `فشل في جلب السجل السابق (حالة: ${response.status})`);
-              }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `فشل في جلب السجل السابق (حالة: ${response.status})`);
+      }
 
       const data: ApiResponse = await response.json();
       if (data.success && data.results.length > 0) {
@@ -1482,6 +1482,10 @@ export default function UploadPage() {
           )
         );
         URL.revokeObjectURL(localPreviewUrl);
+        const index = files.findIndex((fileSection) => fileSection.id === id);
+        if (fileInputRefs.current[index]) {
+          fileInputRefs.current[index]!.value = '';
+        }
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -1524,7 +1528,7 @@ export default function UploadPage() {
         fileSection.id === id
           ? {
               ...fileSection,
-              previewUrls: [...(fileSection.previewUrls || []), ...localPreviewUrls],
+              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
               isUploading: true,
               uploadProgress: 0,
             }
@@ -1556,16 +1560,35 @@ export default function UploadPage() {
             fileSection.id === id
               ? {
                   ...fileSection,
-                  imageUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
-                  previewUrls: [...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []), ...imageUrls],
+                  imageUrls: [
+                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                    ...imageUrls,
+                  ],
+                  previewUrls: [
+                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                    ...imageUrls,
+                  ],
                   isUploading: false,
                   uploadProgress: 100,
                 }
               : fileSection
           )
         );
+
         localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+        const index = files.findIndex((fileSection) => fileSection.id === id);
+        if (fileInputRefs.current[index]) {
+          fileInputRefs.current[index]!.value = '';
+        }
       } catch (error: any) {
+        let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
+        if (error.message.includes('Rate limit')) {
+          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
+        } else if (error.message.includes('ضغط')) {
+          errorMessage = 'فشل في ضغط الصورة. يرجى المحاولة مرة أخرى.';
+        }
+        setUploadMessage(errorMessage);
+        setShowToast(true);
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
@@ -1578,8 +1601,10 @@ export default function UploadPage() {
           )
         );
         localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        setUploadMessage('حدث خطأ أثناء رفع الصور.');
-        setShowToast(true);
+        const index = files.findIndex((fileSection) => fileSection.id === id);
+        if (fileInputRefs.current[index]) {
+          fileInputRefs.current[index]!.value = '';
+        }
       }
     });
   };
@@ -1651,7 +1676,7 @@ export default function UploadPage() {
       })
     );
 
-    const index = files.findIndex((fileSection) => fileSection.id === fileId);
+        const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
     }
