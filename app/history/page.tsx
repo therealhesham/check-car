@@ -1132,9 +1132,10 @@ export default function HistoryPage() {
                                 onClick={() => setSelectedImage(allImages[0].url)}
                                 className="relative w-12 h-12"
                               >
-                                <img
+                                <Image
                                   src={allImages[0].url}
                                   alt={`${allImages[0].title}-${allImages[0].index}`}
+                                  fill
                                   className="object-cover rounded"
                                   sizes="48px"
                                 />
