@@ -1136,7 +1136,7 @@ export default function HistoryPage() {
                                 
                                   src={allImages[0].url}
                                   alt={`${allImages[0].title}-${allImages[0].index}`}
-                                  className="object-cover rounded"
+                                  className="object-fill h-full rounded"
                                   sizes="48px"
                                 />
                               </button>
@@ -1165,7 +1165,7 @@ export default function HistoryPage() {
   <img
     src={image.url}
     alt={`${image.title}-${image.index}`}
-    className="absolute inset-0 w-full h-full object-cover rounded-lg"
+    className="absolute inset-0 w-full  h-full object-fill rounded-lg"
     width="800"
     height="600"
     loading="eager"
