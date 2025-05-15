@@ -1220,13 +1220,14 @@ export default function HistoryPage() {
                 <span className="text-xl">×</span>
               </button>
               <img
-                src={selectedImage}
-                alt="معاينة الصورة"
-                width={800}
-                height={600}
-                className="w-full h-auto rounded-lg"
-                
-              />
+  src={selectedImage}
+  alt="معاينة الصورة"
+  width={800}
+  height={600}
+  className="w-full h-auto rounded-lg"
+  loading="eager"
+  decoding="async"
+/>
             </div>
           </div>
         )}
