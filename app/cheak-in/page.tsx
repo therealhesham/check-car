@@ -24,6 +24,7 @@ interface FileSection {
   multiple: boolean;
   previewUrls: string[];
   isUploading: boolean;
+  uploadProgress: number;
 }
 
 interface AirtableRecord {
