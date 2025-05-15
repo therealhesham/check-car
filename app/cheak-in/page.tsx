@@ -765,14 +765,15 @@ export default function CheckInPage() {
           setShowToast(true);
           setUploadMessage('تم بنجاح رفع التشييك');
           setFiles(
-            fieldTitles.map((title, index) => ({
-              id: `file-section-${sanitizeTitle(title, index)}`,
-              imageUrls: null,
-              title: title,
-              multiple: index === fieldTitles.length - 1,
-              previewUrls: [],
-              isUploading: false,
-            }))
+              fieldTitles.map((title, index) => ({
+                  id: `file-section-${sanitizeTitle(title, index)}`,
+                  imageUrls: null,
+                  title: title,
+                  multiple: index === fieldTitles.length - 1,
+                  previewUrls: [],
+                  isUploading: false,
+                  uploadProgress: 0, // Ensure uploadProgress is included
+              }))
           );
           setCar('');
           setCarSearch('');
