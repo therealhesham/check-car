@@ -1161,13 +1161,14 @@ export default function HistoryPage() {
                                   onClick={() => setSelectedImage(image.url)}
                                   className="relative w-12 h-12"
                                 >
-                                  <img
-                                    src={image.url}
-                                    alt={`${image.title}-${image.index}`}
-                                    
-                                    className="object-cover rounded"
-                                    sizes="48px"
-                                  />
+                                 <img
+  src={image.url}
+  alt={`${image.title}-${image.index}`}
+  className="w-full h-auto rounded-lg max-w-[800px]"
+  width="800"
+  height="600"
+  loading="eager"
+/>
                                 </button>
                               ))}
                             </div>
