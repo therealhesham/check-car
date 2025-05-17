@@ -849,16 +849,18 @@ export default function HistoryPage() {
   };
 
   const getAllImages = (record: Record) => {
-    const images: { url: string; title: string; index: number }[] = [];
+    const images: { url: string; title: string; index: number; thumbnail?: string }[] = [];
     fieldTitles.forEach((title) => {
       if (record.fields[title]?.length > 0) {
-        record.fields[title].forEach((url: string, index: number) => {
-          images.push({ url, title, index });
+        record.fields[title].forEach((img: { original: string; thumbnail?: string }, index: number) => {
+          images.push({ url: img.original, thumbnail: img.thumbnail, title, index });
         });
       }
     });
     return images;
   };
+  
+
 
   return (
     <div dir="rtl" className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
@@ -1125,61 +1127,55 @@ export default function HistoryPage() {
                         {record.fields['الفرع'] ?? '-'}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {allImages.length > 0 ? (
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setSelectedImage(allImages[0].url)}
-                                className="relative w-12 h-12"
-                              >
-                                <img
-                                
-                                  src={allImages[0].url}
-                                  alt={`${allImages[0].title}-${allImages[0].index}`}
-                                  className="object-fill h-full rounded"
-                                  sizes="48px"
-                                />
-                              </button>
-                              {allImages.length > 1 && (
-                                <button
-                                  onClick={() => toggleImages(record.id)}
-                                  className="sm:hidden text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex items-center"
-                                  title="عرض/إخفاء الصور"
-                                >
-                                  <FaChevronDown
-                                    className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''} text-2xl`}
-                                  />
-                                </button>
-                              )}
-                            </div>
-                            <div
-                              className={`flex flex-wrap gap-2 ${isExpanded ? 'block' : 'hidden'} sm:flex`}
-                            >
-                              {allImages.slice(1).map((image) => (
-                                <button
-                                  key={`${image.title}-${image.index}`}
-                                  onClick={() => setSelectedImage(image.url)}
-                                  className="relative w-12 h-12"
-                                >
-                                <div className="relative w-full max-w-[800px] aspect-[800/600]">
-  <img
-    src={image.url}
-    alt={`${image.title}-${image.index}`}
-    className="absolute inset-0 w-full  h-full object-fill rounded-lg"
-    width="800"
-    height="600"
-    loading="eager"
-    decoding="async"
-  />
-</div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-500 dark:text-gray-400">لا توجد صور</span>
-                        )}
-                      </td>
+    {allImages.length > 0 ? (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectedImage(allImages[0].url)}
+            className="relative w-12 h-12"
+          >
+            <img
+              src={allImages[0].thumbnail || allImages[0].url}
+              alt={`${allImages[0].title}-${allImages[0].index}`}
+              className="object-cover w-full h-full rounded"
+              sizes="48px"
+            />
+          </button>
+          {allImages.length > 1 && (
+            <button
+              onClick={() => toggleImages(record.id)}
+              className="sm:hidden text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 flex items-center"
+              title="عرض/إخفاء الصور"
+            >
+              <FaChevronDown
+                className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''} text-2xl`}
+              />
+            </button>
+          )}
+        </div>
+        <div
+          className={`flex flex-wrap gap-2 ${isExpanded ? 'block' : 'hidden'} sm:flex`}
+        >
+          {allImages.slice(1).map((image) => (
+            <button
+              key={`${image.title}-${image.index}`}
+              onClick={() => setSelectedImage(image.url)}
+              className="relative w-12 h-12"
+            >
+              <img
+                src={image.thumbnail || image.url}
+                alt={`${image.title}-${image.index}`}
+                className="object-cover w-full h-full rounded"
+                sizes="48px"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <span className="text-gray-500 dark:text-gray-400">لا توجد صور</span>
+    )}
+  </td>
                     </tr>
                   );
                 })}
@@ -1223,12 +1219,13 @@ export default function HistoryPage() {
                 <span className="text-xl">×</span>
               </button>
               <img
-  src={selectedImage}
+
+src={selectedImage}
   alt="معاينة الصورة"
   width={800}
   height={600}
   className="w-full h-auto rounded-lg"
-  loading="eager"
+  loading="lazy"
   decoding="async"
 />
             </div>

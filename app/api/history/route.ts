@@ -235,7 +235,11 @@ import Airtable, { Records } from 'airtable';
 // واجهة لسجلات Airtable
 interface AirtableRecord {
   id: string;
-  fields: Record<string, any>;
+  fields: {
+    [key: string]: any;
+    'الابواب اليمين مع توضيح السمكة'?: any;
+    'طفاية الحريق'?: any;
+  };
   getId(): string;
 }
 
@@ -472,10 +476,9 @@ export async function GET(req: Request) {
       .select({
         filterByFormula: filterFormula,
         sort: [{ field: 'createdTime', direction: 'desc' }],
-        maxRecords: filterFormula ? pageSize : pageSize * page,
       })
       .all();
-
+      console.log(airtableRecords[0]);
     const offset = filterFormula ? 0 : (page - 1) * pageSize;
     records = airtableRecords.slice(offset, offset + pageSize).map((record) => ({
       id: record.id,
@@ -500,16 +503,24 @@ export async function GET(req: Request) {
             title,
             record.fields[title]
               ? Array.isArray(record.fields[title])
-                ? record.fields[title].map((img: any) => img.url)
+                ? record.fields[title].map((img: any) => ({
+                    original: img.url || null, // رابط الصورة الأصلية
+                    thumbnail: img.thumbnails?.small?.url || null, // رابط الصورة المصغرة
+                  }))
                 : record.fields[title].url
-                  ? [record.fields[title].url]
+                  ? [
+                      {
+                        original: record.fields[title].url || null,
+                        thumbnail: record.fields[title].thumbnails?.small?.url || null,
+                      },
+                    ]
                   : []
               : [],
           ])
         ),
       },
     }));
-
+// console.log(results[0].fields['طفاية الحريق'][0])
     // جلب العدد الإجمالي للسجلات
     const total = await getTotalRecords(contractNumber, plateFilter, branchFilter, operationType);
 
