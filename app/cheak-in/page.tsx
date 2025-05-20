@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import AWS from 'aws-sdk';
@@ -87,7 +85,7 @@ export default function CheckInPage() {
     multiple: index === fieldTitles.length - 1,
     previewUrls: [],
     isUploading: false,
-    uploadProgress: 0
+    uploadProgress: 0,
   }));
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
@@ -368,7 +366,7 @@ export default function CheckInPage() {
   ): Promise<string> => {
     const fileName = `${uuidv4()}.jpg`;
     const buffer = Buffer.from(await file.arrayBuffer());
-  
+
     const params = {
       Bucket: DO_SPACE_NAME,
       Key: fileName,
@@ -376,7 +374,7 @@ export default function CheckInPage() {
       ContentType: 'image/jpeg',
       ACL: 'public-read',
     };
-  
+
     try {
       if (!file.type.startsWith('image/')) {
         throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
@@ -384,27 +382,27 @@ export default function CheckInPage() {
       if (file.size > 32 * 1024 * 1024) {
         throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
-  
+
       const upload = s3.upload(params);
-      
-      // تتبع تقدم الرفع
+
       upload.on('httpUploadProgress', (progress) => {
         const percentage = Math.round((progress.loaded / progress.total) * 100);
         onProgress(percentage);
       });
-  
+
       const result = await upload.promise();
       return result.Location;
     } catch (error: any) {
       throw error;
     }
   };
+
   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-  
+
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
-  
+
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
@@ -413,12 +411,12 @@ export default function CheckInPage() {
               previewUrls: [localPreviewUrl],
               imageUrls: null,
               isUploading: true,
-              uploadProgress: 0, // إعادة تعيين التقدم
+              uploadProgress: 0,
             }
           : fileSection
       )
     );
-  
+
     uploadQueue.current = uploadQueue.current.then(async () => {
       try {
         const compressedFile = await compressImage(file);
@@ -439,7 +437,7 @@ export default function CheckInPage() {
                   imageUrls: imageUrl,
                   previewUrls: [imageUrl],
                   isUploading: false,
-                  uploadProgress: 100, // اكتمال الرفع
+                  uploadProgress: 100,
                 }
               : fileSection
           )
@@ -464,7 +462,7 @@ export default function CheckInPage() {
                   imageUrls: null,
                   previewUrls: [],
                   isUploading: false,
-                  uploadProgress: 0, // إعادة تعيين التقدم في حالة الخطأ
+                  uploadProgress: 0,
                 }
               : fileSection
           )
@@ -480,10 +478,10 @@ export default function CheckInPage() {
 
   const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-  
+
     const selectedFiles = Array.from(e.target.files);
     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
-  
+
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
@@ -491,22 +489,21 @@ export default function CheckInPage() {
               ...fileSection,
               previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
               isUploading: true,
-              uploadProgress: 0, // إعادة تعيين التقدم
+              uploadProgress: 0,
             }
           : fileSection
       )
     );
-  
+
     uploadQueue.current = uploadQueue.current.then(async () => {
       try {
         const imageUrls: string[] = [];
         const totalFiles = selectedFiles.length;
         let completedFiles = 0;
-  
+
         for (const file of selectedFiles) {
           const compressedFile = await compressImage(file);
           const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
-            // حساب التقدم الإجمالي
             completedFiles = completedFiles + (progress / 100 - (completedFiles / totalFiles));
             const overallProgress = Math.round((completedFiles / totalFiles) * 100);
             setFiles((prevFiles) =>
@@ -518,9 +515,9 @@ export default function CheckInPage() {
             );
           });
           imageUrls.push(imageUrl);
-          completedFiles = Math.min(completedFiles + 1, totalFiles); // ضمان عدم التجاوز
+          completedFiles = Math.min(completedFiles + 1, totalFiles);
         }
-  
+
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
@@ -535,7 +532,7 @@ export default function CheckInPage() {
                     ...imageUrls,
                   ],
                   isUploading: false,
-                  uploadProgress: 100, // اكتمال الرفع
+                  uploadProgress: 100,
                 }
               : fileSection
           )
@@ -560,7 +557,7 @@ export default function CheckInPage() {
               ? {
                   ...fileSection,
                   isUploading: false,
-                  uploadProgress: 0, // إعادة تعيين التقدم في حالة الخطأ
+                  uploadProgress: 0,
                 }
               : fileSection
           )
@@ -765,15 +762,15 @@ export default function CheckInPage() {
           setShowToast(true);
           setUploadMessage('تم بنجاح رفع التشييك');
           setFiles(
-              fieldTitles.map((title, index) => ({
-                  id: `file-section-${sanitizeTitle(title, index)}`,
-                  imageUrls: null,
-                  title: title,
-                  multiple: index === fieldTitles.length - 1,
-                  previewUrls: [],
-                  isUploading: false,
-                  uploadProgress: 0, // Ensure uploadProgress is included
-              }))
+            fieldTitles.map((title, index) => ({
+              id: `file-section-${sanitizeTitle(title, index)}`,
+              imageUrls: null,
+              title: title,
+              multiple: index === fieldTitles.length - 1,
+              previewUrls: [],
+              isUploading: false,
+              uploadProgress: 0,
+            }))
           );
           setCar('');
           setCarSearch('');
@@ -900,7 +897,6 @@ export default function CheckInPage() {
             </div>
 
             <div className="relative">
-              {/* Improved Overlay */}
               {!hasExitRecord && (
                 <div
                   className="absolute inset-0 bg-gray-50 dark:bg-gray-900 bg-opacity-90 z-10 flex items-start justify-center pt-16 sm:pt-20 rounded-lg"
@@ -1006,192 +1002,208 @@ export default function CheckInPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-  {files.map((fileSection, index) => (
-    <div key={fileSection.id} className="mb-3">
-      <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-        {fileSection.title} {fileSection.title === 'صور اخرى' ? '' : '*'}
-      </div>
-      <div className="grid grid-cols-1 gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-            الصورة الجديدة:
-          </div>
-          {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-            <div
-              className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
-                fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-              }`}
-            >
-              {fileSection.multiple ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-                    <div key={previewIndex} className="relative h-20 sm:h-24">
-                      <img
-                        src={previewUrl}
-                        alt={`صورة ${previewIndex + 1}`}
-                        className="h-full w-full object-cover rounded cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openPreview(fileSection.previewUrls, previewIndex);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
-                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                        aria-label="حذف الصورة"
-                      >
-                        <span className="text-lg font-bold">×</span>
-                      </button>
+                {files.map((fileSection, index) => (
+                  <div key={fileSection.id} className="mb-3">
+                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
+                      {fileSection.title} {fileSection.title === 'صور اخرى' ? '' : '*'}
                     </div>
-                  ))}
-                  <label
-                    htmlFor={`file-input-${fileSection.id}`}
-                    className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-                  >
-                    <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-                  </label>
-                </div>
-              ) : (
-                <div className="relative h-full w-full flex items-center justify-center">
-                  <img
-                    src={fileSection.previewUrls[0]}
-                    alt={fileSection.title}
-                    className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openPreview([fileSection.previewUrls[0]], 0);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
-                    aria-label="حذف الصورة"
-                  >
-                    <span className="text-lg font-bold">×</span>
-                  </button>
-                </div>
-              )}
-              {/* إضافة شريط التقدم */}
-              {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                <div className="mt-2">
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                    <div
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${fileSection.uploadProgress}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                    {fileSection.uploadProgress}%
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <label
-              htmlFor={`file-input-${fileSection.id}`}
-              className={`cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32 ${
-                !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
-              </span>
-            </label>
-          )}
-          <input
-            id={`file-input-${fileSection.id}`}
-            ref={setInputRef(index)}
-            type="file"
-            accept="image/*"
-            capture={fileSection.multiple ? undefined : 'environment'}
-            multiple={fileSection.multiple}
-            onChange={(e) =>
-              fileSection.multiple
-                ? handleMultipleFileChange(fileSection.id, e)
-                : handleFileChange(fileSection.id, e)
-            }
-            className="hidden"
-            disabled={!hasExitRecord}
-          />
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-            الصورة القديمة (تشييك الخروج):
-          </div>
-          {previousRecord && previousRecord.fields[fileSection.title] ? (
-            previousRecord.fields[fileSection.title].length > 0 ? (
-              <div
-                className={`relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 ${
-                  fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-                } bg-gray-50 dark:bg-gray-700`}
-              >
-                {fileSection.multiple ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {previousRecord.fields[fileSection.title].map((url: string, prevIndex: number) => (
-                      <div key={prevIndex} className="relative h-20 sm:h-24">
-                        <img
-                          src={url}
-                          alt={`صورة سابقة ${prevIndex + 1}`}
-                          className="h-full w-full object-cover rounded cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openPreview(previousRecord.fields[fileSection.title], prevIndex);
-                          }}
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                          الصورة الجديدة:
+                        </div>
+                        {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+                          <div
+                            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
+                              fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+                            }`}
+                          >
+                            {fileSection.multiple ? (
+                              <div className="grid grid-cols-2 gap-2">
+                                {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+                                  <div key={previewIndex} className="relative h-20 sm:h-24">
+                                    <img
+                                      src={previewUrl}
+                                      alt={`صورة ${previewIndex + 1}`}
+                                      className="h-full w-full object-cover rounded cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openPreview(fileSection.previewUrls, previewIndex);
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
+                                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                                      aria-label="حذف الصورة"
+                                    >
+                                      <span className="text-lg font-bold">×</span>
+                                    </button>
+                                  </div>
+                                ))}
+                                <label
+                                  htmlFor={`file-input-${fileSection.id}`}
+                                  className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
+                                >
+                                  <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+                                </label>
+                              </div>
+                            ) : (
+                              <div className="relative h-full w-full flex items-center justify-center">
+                                <img
+                                  src={fileSection.previewUrls[0]}
+                                  alt={fileSection.title}
+                                  className="max-h-full max-w-full object-contain rounded cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPreview([fileSection.previewUrls[0]], 0);
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+                                  aria-label="حذف الصورة"
+                                >
+                                  <span className="text-lg font-bold">×</span>
+                                </button>
+                              </div>
+                            )}
+                            {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+                              <div className="mt-2">
+                                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                  <div
+                                    className="bg-blue-600 hDQ.5 rounded-full transition-all duration-300"
+                                    style={{ width: `${fileSection.uploadProgress}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                                  {fileSection.uploadProgress}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <label
+                            htmlFor={`file-input-${fileSection.id}`}
+                            className={`cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32 ${
+                              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+                            }`}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-1"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
+                            </span>
+                          </label>
+                        )}
+                        <input
+                          id={`file-input-${fileSection.id}`}
+                          ref={setInputRef(index)}
+                          type="file"
+                          accept="image/*"
+                          capture={fileSection.multiple ? undefined : 'environment'}
+                          multiple={fileSection.multiple}
+                          onChange={(e) =>
+                            fileSection.multiple
+                              ? handleMultipleFileChange(fileSection.id, e)
+                              : handleFileChange(fileSection.id, e)
+                          }
+                          className="hidden"
+                          disabled={!hasExitRecord}
                         />
                       </div>
-                    ))}
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                          الصورة القديمة (تشييك الخروج):
+                        </div>
+                        {previousRecord && previousRecord.fields[fileSection.title] ? (
+                          Array.isArray(previousRecord.fields[fileSection.title]) &&
+                          previousRecord.fields[fileSection.title].length > 0 ? (
+                            <div
+                              className={`relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 ${
+                                fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+                              } bg-gray-50 dark:bg-gray-700`}
+                            >
+                              {fileSection.multiple ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(previousRecord.fields[fileSection.title] as { original: string; thumbnail: string }[])
+                                    .map((imageObj, prevIndex) => (
+                                      <div key={prevIndex} className="relative h-20 sm:h-24">
+                                        <img
+                                          src={imageObj.original}
+                                          alt={`صورة سابقة ${prevIndex + 1}`}
+                                          className="h-full w-full object-cover rounded cursor-pointer"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openPreview(
+                                              (previousRecord.fields[fileSection.title] as {
+                                                original: string;
+                                                thumbnail: string;
+                                              }[]).map((img) => img.original),
+                                              prevIndex
+                                            );
+                                          }}
+                                        />
+                                      </div>
+                                    ))}
+                                </div>
+                              ) : (
+                                <div className="relative h-full w-full flex items-center justify-center">
+                                  <img
+                                    src={(previousRecord.fields[fileSection.title] as { original: string; thumbnail: string }[])[0]
+                                      ?.original}
+                                    alt={`${fileSection.title} - سابق`}
+                                    className="max-h-full max-w-full object-contain rounded cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openPreview(
+                                        [
+                                          (previousRecord.fields[fileSection.title] as {
+                                            original: string;
+                                            thumbnail: string;
+                                          }[])[0]?.original,
+                                        ],
+                                        0
+                                      );
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+                              لا توجد صورة قديمة
+                            </div>
+                          )
+                        ) : (
+                          <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+                            لا توجد صورة قديمة
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="relative h-full w-full flex items-center justify-center">
-                    <img
-                      src={previousRecord.fields[fileSection.title][0]}
-                      alt={`${fileSection.title} - سابق`}
-                      className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openPreview([previousRecord.fields[fileSection.title][0]], 0);
-                      }}
-                    />
-                  </div>
-                )}
+                ))}
               </div>
-            ) : (
-              <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-                لا توجد صورة قديمة
-              </div>
-            )
-          ) : (
-            <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-              لا توجد صورة قديمة
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  ))}
-</div>
 
               <div className="mb-4 text-center mt-4">
                 <button
